@@ -29,7 +29,6 @@ Although tracking performs well under normal operating conditions, temporary occ
 Future improvements may include stronger appearance models or sensor fusion techniques.
 
 ---
-
 ## Dataset Coverage
 
 The performance of the detector is directly influenced by the diversity of the training dataset.
