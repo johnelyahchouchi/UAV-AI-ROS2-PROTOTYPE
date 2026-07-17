@@ -1,29 +1,44 @@
-# 06 - Threat Evaluation
+# 06 - Model Training
 
 ## Overview
 
-Once objects have been detected and tracked, the perception pipeline performs an additional analysis to estimate their relative importance.
+The object detection models used by the perception pipeline were trained before deployment using custom datasets and the Ultralytics YOLO training framework.
 
-This stage introduces application-specific decision logic that assigns a threat level to each detected target based on predefined evaluation criteria.
+Training is the process during which the neural network learns to recognize different object categories by analysing thousands of labelled images. Once training is complete, the resulting model can be deployed to perform real-time inference on previously unseen data.
 
-Rather than replacing human decision-making, the objective is to prioritize information and help operators identify potentially important targets more efficiently.
-
----
-
-## Threat Assessment
-
-The current implementation evaluates each tracked object using a simple heuristic approach.
-
-Information produced during the perception stage, such as the detected class and the apparent size of the object, is combined to estimate a threat level.
-
-The resulting value is attached to every tracked object before transmission to the ROS 2 environment.
+The training process was performed separately from the operational system using Google Colab with GPU acceleration.
 
 ---
 
-## Design Considerations
+## Training Pipeline
 
-The threat evaluation module is intentionally separated from the object detection stage.
+The complete training workflow consists of several sequential stages:
 
-This modular design allows the perception system to remain independent of application-specific decision logic, making it possible to replace or improve the threat evaluation strategy without modifying the detection or tracking algorithms.
+1. Dataset preparation and organization.
+2. Image annotation using bounding boxes.
+3. Dataset splitting into training, validation and testing subsets.
+4. Model training using the Ultralytics framework.
+5. Performance evaluation.
+6. Exporting the final model for deployment.
 
-Future versions may incorporate additional information such as object velocity, trajectory, distance estimation or external sensor data to produce more advanced threat assessments.
+Each stage contributes to the final performance of the detector and directly influences its accuracy and robustness.
+
+---
+
+## Model Selection
+
+The project uses YOLO as the primary object detection architecture due to its balance between detection accuracy and real-time performance.
+
+Different models were trained depending on the application, including general surveillance models and specialized military vehicle detectors.
+
+After training, the selected model is exported and integrated into the Windows AI perception pipeline for inference.
+
+---
+
+## Performance Evaluation
+
+During training, multiple performance metrics are monitored to evaluate model quality.
+
+These include training and validation losses, precision, recall and mean Average Precision (mAP).
+
+The evaluation process helps determine whether the model is learning effectively and whether additional training or dataset improvements are required.
