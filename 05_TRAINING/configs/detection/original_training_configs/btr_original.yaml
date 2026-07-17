@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['BTR']
+
+roboflow:
+  workspace: ernest-qq56a
+  project: btr-mxk7s
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/ernest-qq56a/btr-mxk7s/dataset/1

@@ -1,0 +1,7 @@
+Dataset,Official YAML,Real Path,Use,Status
+01_btr_original_1class,training_configs/01_btr_original_1class.yaml,C:/uav_datasets_master/01_btr_original_1class,BTR-only detector,Good
+02_kaggle_military_12class,training_configs/02_kaggle_military_12class.yaml,C:/uav_datasets_master/02_kaggle_military_12class,Broad military multi-class,Good
+03_roboflow_military_footage_8class,training_configs/03_roboflow_military_footage_8class.yaml,C:/uav_datasets_master/03_roboflow_military_footage_8class,Military footage classes,Good
+04_roboflow_tank_2class,training_configs/04_roboflow_tank_2class.yaml,C:/uav_datasets_master/04_roboflow_tank_2class,Tank/military vehicle focus,Needs class cleanup later
+05_amad5_aerial_military_5class_clean,training_configs/05_amad5_aerial_military_5class_clean.yaml,C:/uav_datasets_master/05_amad5_aerial_military_5class_clean,Aerial UAV military detection,Official clean AMAD5
+06_custom_drone_frames_raw_206,None,C:/uav_datasets_master/06_custom_drone_frames_raw_206,Raw drone frames,Needs labels before training

@@ -1,0 +1,15 @@
+path: C:/uav_datasets_master/03_roboflow_military_footage_8class
+train: train/images
+val: valid/images
+test: test/images
+
+nc: 8
+names:
+  0: artillery
+  1: car
+  2: explosion
+  3: military_truck
+  4: military_vehicle
+  5: person
+  6: tank
+  7: truck

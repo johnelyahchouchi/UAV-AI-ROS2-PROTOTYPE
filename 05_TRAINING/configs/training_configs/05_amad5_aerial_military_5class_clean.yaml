@@ -1,0 +1,12 @@
+path: C:/uav_datasets_master/05_amad5_aerial_military_5class_clean
+train: train/images
+val: val/images
+test: test/images
+
+nc: 5
+names:
+  0: military_tank
+  1: military_vehicle
+  2: civilian
+  3: soldier
+  4: civilian_vehicle
