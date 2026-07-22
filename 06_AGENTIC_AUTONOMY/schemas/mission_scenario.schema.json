@@ -1,0 +1,19 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"mission_scenario.schema.json","title":"Mission Scenario","type":"object",
+  "required":["schema_version","scenario_id","uavs","targets","regions","mission_requests"],"additionalProperties":false,
+  "properties":{
+    "schema_version":{"const":"1.0"},"scenario_id":{"type":"string","minLength":1},
+    "uavs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/uav"}},"targets":{"type":"array","items":{"$ref":"#/$defs/target"}},
+    "regions":{"type":"array","items":{"$ref":"#/$defs/region"}},"mission_requests":{"type":"array","items":{"$ref":"#/$defs/request"}},
+    "operating_region_id":{"type":["string","null"]},"exclusion_region_ids":{"type":"array","items":{"type":"string"}}
+  },
+  "$defs":{
+    "point":{"type":"object","required":["x","y"],"properties":{"x":{"type":"number"},"y":{"type":"number"}},"additionalProperties":false},
+    "capability":{"enum":["RECONNAISSANCE","SURVEILLANCE","TARGET_TRACKING","AREA_SEARCH","COMMUNICATION_RELAY"]},
+    "priority":{"enum":["LOW","MEDIUM","HIGH","CRITICAL"]},
+    "uav":{"type":"object","required":["id","position","status","capabilities","battery_percent","link_quality","current_workload","max_workload"],"properties":{"id":{"type":"string","minLength":1},"position":{"$ref":"#/$defs/point"},"status":{"enum":["AVAILABLE","BUSY","UNAVAILABLE"]},"capabilities":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/capability"}},"battery_percent":{"type":"number","minimum":0,"maximum":100},"link_quality":{"type":"number","minimum":0,"maximum":1},"current_workload":{"type":"integer","minimum":0},"max_workload":{"type":"integer","minimum":1},"max_task_distance":{"anyOf":[{"type":"number","exclusiveMinimum":0},{"type":"null"}]},"current_target_id":{"type":["string","null"]}},"additionalProperties":false},
+    "target":{"type":"object","required":["id","position","priority","status"],"properties":{"id":{"type":"string","minLength":1},"position":{"$ref":"#/$defs/point"},"priority":{"$ref":"#/$defs/priority"},"status":{"enum":["UNCONFIRMED","DETECTED","TRACKED","LOST"]},"required_capabilities":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/capability"}},"continuity_uav_id":{"type":["string","null"]}},"additionalProperties":false},
+    "region":{"type":"object","required":["id","region_type","vertices","priority"],"properties":{"id":{"type":"string","minLength":1},"region_type":{"enum":["SEARCH_AREA","OBSERVATION_AREA","EXCLUSION_ZONE","OPERATING_AREA"]},"vertices":{"type":"array","minItems":3,"items":{"$ref":"#/$defs/point"}},"priority":{"$ref":"#/$defs/priority"},"required_capabilities":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/capability"}}},"additionalProperties":false},
+    "request":{"type":"object","required":["id","task_type","priority"],"properties":{"id":{"type":"string","minLength":1},"task_type":{"enum":["SEARCH_REGION","OBSERVE_REGION","INVESTIGATE_TARGET","TRACK_TARGET","RELAY_COMMUNICATIONS"]},"priority":{"$ref":"#/$defs/priority"},"required_capabilities":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/capability"}},"target_id":{"type":["string","null"]},"region_id":{"type":["string","null"]}},"oneOf":[{"properties":{"task_type":{"enum":["INVESTIGATE_TARGET","TRACK_TARGET"]},"target_id":{"type":"string","minLength":1},"region_id":{"type":"null"}},"required":["target_id"]},{"properties":{"task_type":{"enum":["SEARCH_REGION","OBSERVE_REGION","RELAY_COMMUNICATIONS"]},"region_id":{"type":"string","minLength":1},"target_id":{"type":"null"}},"required":["region_id"]}],"additionalProperties":false}
+  }
+}

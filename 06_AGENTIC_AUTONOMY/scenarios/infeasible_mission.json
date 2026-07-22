@@ -1,0 +1,9 @@
+{
+  "schema_version":"1.0","scenario_id":"infeasible-mission",
+  "uavs":[{"id":"uav-01","position":{"x":0,"y":0},"status":"AVAILABLE","capabilities":["AREA_SEARCH"],"battery_percent":10,"link_quality":0.2,"current_workload":0,"max_workload":1,"max_task_distance":100,"current_target_id":null}],
+  "targets":[{"id":"target-01","position":{"x":500,"y":500},"priority":"HIGH","status":"DETECTED","required_capabilities":["TARGET_TRACKING"],"continuity_uav_id":null}],
+  "regions":[],
+  "mission_requests":[{"id":"track-unreachable","task_type":"TRACK_TARGET","target_id":"target-01","region_id":null,"priority":"HIGH","required_capabilities":[]}],
+  "operating_region_id":null,"exclusion_region_ids":[]
+}
+

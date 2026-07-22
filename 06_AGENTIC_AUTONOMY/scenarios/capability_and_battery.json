@@ -1,0 +1,13 @@
+{
+  "schema_version":"1.0","scenario_id":"capability-and-battery",
+  "uavs":[
+    {"id":"uav-capable-low","position":{"x":100,"y":100},"status":"AVAILABLE","capabilities":["AREA_SEARCH"],"battery_percent":24,"link_quality":0.9,"current_workload":0,"max_workload":2,"max_task_distance":1000,"current_target_id":null},
+    {"id":"uav-capable-safe","position":{"x":700,"y":700},"status":"AVAILABLE","capabilities":["AREA_SEARCH"],"battery_percent":80,"link_quality":0.8,"current_workload":0,"max_workload":2,"max_task_distance":1500,"current_target_id":null},
+    {"id":"uav-near-wrong-capability","position":{"x":250,"y":250},"status":"AVAILABLE","capabilities":["SURVEILLANCE"],"battery_percent":95,"link_quality":1.0,"current_workload":0,"max_workload":2,"max_task_distance":1500,"current_target_id":null}
+  ],
+  "targets":[],
+  "regions":[{"id":"sector","region_type":"SEARCH_AREA","vertices":[{"x":200,"y":200},{"x":400,"y":200},{"x":400,"y":400},{"x":200,"y":400}],"priority":"HIGH","required_capabilities":[]}],
+  "mission_requests":[{"id":"search-sector","task_type":"SEARCH_REGION","region_id":"sector","target_id":null,"priority":"HIGH","required_capabilities":[]}],
+  "operating_region_id":null,"exclusion_region_ids":[]
+}
+

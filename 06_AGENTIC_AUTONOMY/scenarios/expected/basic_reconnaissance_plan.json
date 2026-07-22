@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0",
+  "planner_version": "0.1.0",
+  "policy_version": "1.0",
+  "scenario_id": "basic-reconnaissance",
+  "tasks": [
+    {
+      "id": "task-001-request-track",
+      "location": {"x": 500.0, "y": 250.0},
+      "priority": "HIGH",
+      "region_id": null,
+      "request_id": "request-track",
+      "required_capabilities": ["TARGET_TRACKING"],
+      "sequence": 1,
+      "target_id": "target-01",
+      "task_type": "TRACK_TARGET"
+    },
+    {
+      "id": "task-002-request-search",
+      "location": {"x": 500.0, "y": 450.0},
+      "priority": "MEDIUM",
+      "region_id": "search-sector-a",
+      "request_id": "request-search",
+      "required_capabilities": ["AREA_SEARCH"],
+      "sequence": 2,
+      "target_id": null,
+      "task_type": "SEARCH_REGION"
+    }
+  ],
+  "assignments": [
+    {
+      "task_id": "task-001-request-track", "uav_id": "uav-01", "decision": "APPROVED",
+      "reasons": [
+        "Required capabilities matched: TARGET_TRACKING.",
+        "Battery 82.00% passed the 25.00% reserve with a 57.00-point margin.",
+        "Link quality 0.910 passed the 0.400 threshold with a 0.510 margin.",
+        "Distance to task is 559.016994 scenario units; distance score is 627.",
+        "Assignment changes workload from 0 to 1 of 2; workload score is 1000."
+      ],
+      "score_breakdown": {"capability_score":1000,"battery_score":760,"distance_score":627,"link_quality_score":850,"workload_score":1000,"target_continuity_score":0,"priority_multiplier":1250,"base_total":805,"final_total":1006,"distance":559.016994},
+      "safety_checks": [{"rule":"CAPABILITY_MATCH","passed":true,"observed_value":["TARGET_TRACKING"],"required_value":["TARGET_TRACKING"],"reason":"Required capabilities matched."}]
+    },
+    {
+      "task_id": "task-002-request-search", "uav_id": "uav-02", "decision": "APPROVED",
+      "reasons": [
+        "Required capabilities matched: AREA_SEARCH.",
+        "Battery 70.00% passed the 25.00% reserve with a 45.00-point margin.",
+        "Link quality 0.800 passed the 0.400 threshold with a 0.400 margin.",
+        "Distance to task is 427.200187 scenario units; distance score is 715.",
+        "Assignment changes workload from 0 to 1 of 2; workload score is 1000.",
+        "Final score 839 is 25 points above eligible runner-up uav-01 (814)."
+      ],
+      "score_breakdown": {"capability_score":1000,"battery_score":600,"distance_score":715,"link_quality_score":667,"workload_score":1000,"target_continuity_score":0,"priority_multiplier":1100,"base_total":763,"final_total":839,"distance":427.200187},
+      "safety_checks": [{"rule":"CAPABILITY_MATCH","passed":true,"observed_value":["AREA_SEARCH"],"required_value":["AREA_SEARCH"],"reason":"Required capabilities matched."}]
+    }
+  ],
+  "unassigned_tasks": [],
+  "candidate_evaluations": {},
+  "summary": {
+    "all_assignments_safe": true,
+    "assigned_task_count": 2,
+    "generated_task_count": 2,
+    "uav_assignment_counts": {"uav-01": 1, "uav-02": 1},
+    "unassigned_task_count": 0
+  },
+  "deterministic_fingerprint": "292be4324cc2827e91e2d5bf2e596c606846c35d376cb4f7c781736e767c6f9f"
+}

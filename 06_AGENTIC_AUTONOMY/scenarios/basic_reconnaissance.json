@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0", "scenario_id": "basic-reconnaissance",
+  "uavs": [
+    {"id":"uav-01","position":{"x":0,"y":0},"status":"AVAILABLE","capabilities":["AREA_SEARCH","TARGET_TRACKING","RECONNAISSANCE"],"battery_percent":82,"link_quality":0.91,"current_workload":0,"max_workload":2,"max_task_distance":1500,"current_target_id":null},
+    {"id":"uav-02","position":{"x":900,"y":600},"status":"AVAILABLE","capabilities":["AREA_SEARCH","SURVEILLANCE"],"battery_percent":70,"link_quality":0.8,"current_workload":0,"max_workload":2,"max_task_distance":1500,"current_target_id":null}
+  ],
+  "targets": [{"id":"target-01","position":{"x":500,"y":250},"priority":"HIGH","status":"DETECTED","required_capabilities":["TARGET_TRACKING"],"continuity_uav_id":null}],
+  "regions": [
+    {"id":"operating-area","region_type":"OPERATING_AREA","vertices":[{"x":-100,"y":-100},{"x":2000,"y":-100},{"x":2000,"y":2000},{"x":-100,"y":2000}],"priority":"MEDIUM","required_capabilities":[]},
+    {"id":"search-sector-a","region_type":"SEARCH_AREA","vertices":[{"x":200,"y":200},{"x":800,"y":200},{"x":800,"y":700},{"x":200,"y":700}],"priority":"MEDIUM","required_capabilities":["AREA_SEARCH"]}
+  ],
+  "mission_requests": [
+    {"id":"request-search","task_type":"SEARCH_REGION","region_id":"search-sector-a","target_id":null,"priority":"MEDIUM","required_capabilities":[]},
+    {"id":"request-track","task_type":"TRACK_TARGET","region_id":null,"target_id":"target-01","priority":"HIGH","required_capabilities":[]}
+  ],
+  "operating_region_id":"operating-area", "exclusion_region_ids":[]
+}
+
