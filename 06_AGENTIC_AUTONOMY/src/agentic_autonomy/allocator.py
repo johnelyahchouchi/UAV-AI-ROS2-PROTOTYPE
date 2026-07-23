@@ -90,7 +90,7 @@ def _approval_reasons(task: Task, uav: UAV, workload: int, score: dict, policy: 
     return reasons
 
 
-def allocate(tasks: tuple[Task, ...], scenario: Scenario, policy: dict) -> tuple[list[dict], list[dict], dict]:
+def allocate(tasks: tuple[Task, ...], scenario: Scenario, policy: dict, candidate_selector=None) -> tuple[list[dict], list[dict], dict]:
     workloads = {u.id: u.current_workload for u in scenario.uavs}
     assignments, unassigned, evaluations = [], [], {}
     for task in tasks:
@@ -109,12 +109,20 @@ def allocate(tasks: tuple[Task, ...], scenario: Scenario, policy: dict) -> tuple
                                        -c["score_breakdown"]["workload_score"], c["uav_id"]))
         evaluations[task.id] = candidates
         winner = next((c for c in candidates if c["decision"] == "APPROVED"), None)
+        selection_reasons = []
+        if candidate_selector is not None and winner is not None:
+            selected, selection_reasons = candidate_selector(task, candidates)
+            if selected not in candidates or selected["decision"] != "APPROVED":
+                raise ScenarioError("candidate selector must return an approved candidate from the current evaluation")
+            winner = selected
         if winner:
             eligible = [candidate for candidate in candidates if candidate["decision"] == "APPROVED"]
             runner_up = next((candidate for candidate in eligible if candidate is not winner), None)
             winner_uav = next(uav for uav in scenario.uavs if uav.id == winner["uav_id"])
             winner["reasons"] = _approval_reasons(task, winner_uav, workloads[winner_uav.id],
-                                                   winner["score_breakdown"], policy, runner_up)
+                                                   winner["score_breakdown"], policy,
+                                                   None if selection_reasons else runner_up)
+            winner["reasons"].extend(selection_reasons)
             workloads[winner["uav_id"]] += 1
             assignments.append({"task_id": task.id, "uav_id": winner["uav_id"], "decision": "APPROVED",
                                 "reasons": winner["reasons"], "score_breakdown": winner["score_breakdown"],

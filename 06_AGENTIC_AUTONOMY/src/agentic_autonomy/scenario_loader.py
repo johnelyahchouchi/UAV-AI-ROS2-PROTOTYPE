@@ -18,11 +18,13 @@ TARGET_KEYS = {"id", "position", "priority", "status", "required_capabilities", 
 REGION_KEYS = {"id", "region_type", "vertices", "priority", "required_capabilities"}
 REQUEST_KEYS = {"id", "task_type", "priority", "required_capabilities", "target_id", "region_id"}
 POINT_KEYS = {"x", "y"}
-POLICY_KEYS = {"policy_version", "safety_thresholds", "allocation_weights", "priority_multipliers", "score_scale"}
+POLICY_KEYS = {"policy_version", "safety_thresholds", "allocation_weights", "priority_multipliers", "score_scale", "replanning"}
 THRESHOLD_KEYS = {"minimum_battery_reserve_percent", "minimum_link_quality", "maximum_tasks_per_uav",
                   "distance_normalization", "continuity_required"}
 WEIGHT_KEYS = {"capability", "battery", "distance", "link_quality", "workload", "target_continuity"}
 PRIORITY_KEYS = {x.value for x in Priority}
+REPLANNING_KEYS = {"minimum_base_score_improvement_to_switch", "target_movement_trigger_distance",
+                   "critical_battery_percent", "return_home_on_link_below_minimum"}
 TARGET_TASKS = {TaskType.INVESTIGATE_TARGET, TaskType.TRACK_TARGET}
 REGION_TASKS = {TaskType.SEARCH_REGION, TaskType.OBSERVE_REGION, TaskType.RELAY_COMMUNICATIONS}
 
@@ -133,9 +135,11 @@ def load_policy(path: str | Path) -> dict:
     thresholds = _object(raw["safety_thresholds"], "policy.safety_thresholds")
     weights = _object(raw["allocation_weights"], "policy.allocation_weights")
     multipliers = _object(raw["priority_multipliers"], "policy.priority_multipliers")
+    replanning = _object(raw["replanning"], "policy.replanning")
     _keys(thresholds, THRESHOLD_KEYS, THRESHOLD_KEYS, "policy.safety_thresholds")
     _keys(weights, WEIGHT_KEYS, WEIGHT_KEYS, "policy.allocation_weights")
     _keys(multipliers, PRIORITY_KEYS, PRIORITY_KEYS, "policy.priority_multipliers")
+    _keys(replanning, REPLANNING_KEYS, REPLANNING_KEYS, "policy.replanning")
 
     battery = _number(thresholds["minimum_battery_reserve_percent"], "policy.safety_thresholds.minimum_battery_reserve_percent")
     link = _number(thresholds["minimum_link_quality"], "policy.safety_thresholds.minimum_link_quality")
@@ -158,15 +162,35 @@ def load_policy(path: str | Path) -> dict:
     scale = _integer(raw["score_scale"], "policy.score_scale")
     if scale <= 0:
         raise ScenarioError("policy score scale must be a positive integer")
+    switch_margin = _integer(replanning["minimum_base_score_improvement_to_switch"],
+                             "policy.replanning.minimum_base_score_improvement_to_switch")
+    movement = _number(replanning["target_movement_trigger_distance"],
+                       "policy.replanning.target_movement_trigger_distance")
+    critical_battery = _number(replanning["critical_battery_percent"],
+                               "policy.replanning.critical_battery_percent")
+    link_return = _boolean(replanning["return_home_on_link_below_minimum"],
+                           "policy.replanning.return_home_on_link_below_minimum")
+    if switch_margin < 0 or movement < 0:
+        raise ScenarioError("replanning switch margin and target movement threshold must be nonnegative")
+    if not 0 <= critical_battery < battery:
+        raise ScenarioError("critical battery must be nonnegative and below the battery reserve threshold")
     return {"policy_version": policy_version,
             "safety_thresholds": {"minimum_battery_reserve_percent": battery, "minimum_link_quality": link,
                                   "maximum_tasks_per_uav": max_tasks, "distance_normalization": distance_norm,
                                   "continuity_required": continuity},
-            "allocation_weights": clean_weights, "priority_multipliers": clean_multipliers, "score_scale": scale}
+            "allocation_weights": clean_weights, "priority_multipliers": clean_multipliers, "score_scale": scale,
+            "replanning": {"minimum_base_score_improvement_to_switch": switch_margin,
+                           "target_movement_trigger_distance": movement,
+                           "critical_battery_percent": critical_battery,
+                           "return_home_on_link_below_minimum": link_return}}
 
 
 def load_scenario(path: str | Path) -> Scenario:
-    raw = _object(_read_json(path, "scenario"), "scenario")
+    return parse_scenario(_read_json(path, "scenario"))
+
+
+def parse_scenario(value: Any) -> Scenario:
+    raw = _object(value, "scenario")
     required = {"schema_version", "scenario_id", "uavs", "targets", "regions", "mission_requests"}
     _keys(raw, SCENARIO_KEYS, required, "scenario")
     version = _string(raw["schema_version"], "scenario.schema_version")

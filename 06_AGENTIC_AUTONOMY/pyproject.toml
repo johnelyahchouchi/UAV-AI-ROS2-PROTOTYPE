@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentic-uav-mission-copilot"
-version = "0.1.0"
+version = "0.2.0"
 description = "Deterministic offline UAV mission task planner"
 requires-python = ">=3.11"
 dependencies = []
@@ -15,4 +15,3 @@ test = ["pytest>=8,<10"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-

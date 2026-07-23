@@ -21,6 +21,11 @@
     "HIGH": 1250,
     "CRITICAL": 1500
   },
-  "score_scale": 1000
+  "score_scale": 1000,
+  "replanning": {
+    "minimum_base_score_improvement_to_switch": 75,
+    "target_movement_trigger_distance": 100.0,
+    "critical_battery_percent": 10.0,
+    "return_home_on_link_below_minimum": true
+  }
 }
-

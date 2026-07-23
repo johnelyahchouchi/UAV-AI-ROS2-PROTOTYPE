@@ -1,0 +1,27 @@
+{
+  "schema_version": "2.0-expectation",
+  "mission_id": "battery-degradation",
+  "expected_snapshots": [
+    {
+      "sequence": 1,
+      "change_type": "NEW_ASSIGNMENT",
+      "previous_uav_id": null,
+      "current_uav_id": "uav-a",
+      "advisory_reason": null
+    },
+    {
+      "sequence": 2,
+      "change_type": "REASSIGNED",
+      "previous_uav_id": "uav-a",
+      "current_uav_id": "uav-b",
+      "advisory_reason": "BATTERY_BELOW_RESERVE"
+    },
+    {
+      "sequence": 3,
+      "change_type": "UNCHANGED",
+      "previous_uav_id": "uav-b",
+      "current_uav_id": "uav-b",
+      "advisory_reason": "BATTERY_CRITICAL"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "replanning_result.schema.json",
+  "title": "Dynamic Mission Replanning Result",
+  "type": "object",
+  "required": ["schema_version", "replanner_version", "mission_id", "policy_version", "snapshots", "deterministic_fingerprint"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "2.0"},
+    "replanner_version": {"const": "0.2.0"},
+    "mission_id": {"type": "string", "minLength": 1},
+    "policy_version": {"type": "string", "minLength": 1},
+    "snapshots": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/snapshotResult"}},
+    "deterministic_fingerprint": {"$ref": "#/$defs/fingerprint"}
+  },
+  "$defs": {
+    "fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "trigger": {
+      "type": "object", "required": ["id", "trigger_type", "entity_type", "entity_id", "previous_value", "current_value", "explanation"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^trigger-[0-9]{3}-[0-9]{3}$"},
+        "trigger_type": {"enum": ["INITIAL_SNAPSHOT", "TASK_CREATED", "TASK_ACTIVATED", "TASK_COMPLETED", "TASK_CANCELLED", "BATTERY_CHANGED", "BATTERY_BELOW_RESERVE", "BATTERY_CRITICAL", "LINK_QUALITY_CHANGED", "LINK_BELOW_MINIMUM", "UAV_AVAILABILITY_CHANGED", "UAV_CAPABILITIES_CHANGED", "UAV_WORKLOAD_CHANGED", "UAV_POSITION_CHANGED", "TARGET_MOVED", "TARGET_STATE_CHANGED", "REGION_CHANGED", "SAFETY_ELIGIBILITY_CHANGED", "HYSTERESIS_THRESHOLD_EXCEEDED", "NO_MEANINGFUL_CHANGE"]},
+        "entity_type": {"enum": ["MISSION", "TASK", "UAV", "TARGET", "REGION"]},
+        "entity_id": {"type": "string", "minLength": 1}, "previous_value": {}, "current_value": {},
+        "explanation": {"type": "string", "minLength": 1}
+      }
+    },
+    "change": {
+      "type": "object", "required": ["change_type", "request_id", "previous_task_id", "current_task_id", "previous_uav_id", "current_uav_id", "previous_score", "current_score"],
+      "additionalProperties": false,
+      "properties": {
+        "change_type": {"enum": ["UNCHANGED", "NEW_ASSIGNMENT", "REASSIGNED", "COMPLETED", "CANCELLED", "NEWLY_UNASSIGNED", "REMAINS_UNASSIGNED"]},
+        "request_id": {"type": "string", "minLength": 1},
+        "previous_task_id": {"type": ["string", "null"]}, "current_task_id": {"type": ["string", "null"]},
+        "previous_uav_id": {"type": ["string", "null"]}, "current_uav_id": {"type": ["string", "null"]},
+        "previous_score": {"type": ["integer", "null"]}, "current_score": {"type": ["integer", "null"]}
+      }
+    },
+    "scoreComparison": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "incumbent_uav_id": {"type": ["string", "null"]}, "incumbent_base_score": {"type": ["integer", "null"]},
+        "challenger_uav_id": {"type": ["string", "null"]}, "challenger_base_score": {"type": ["integer", "null"]},
+        "improvement": {"type": ["integer", "null"]}, "required_improvement": {"type": "integer", "minimum": 0},
+        "hysteresis_applied": {"type": "boolean"}
+      },
+      "required": ["incumbent_uav_id", "incumbent_base_score", "challenger_uav_id", "challenger_base_score", "improvement", "required_improvement", "hysteresis_applied"]
+    },
+    "decision": {
+      "type": "object", "required": ["id", "sequence", "decision_type", "change", "trigger_ids", "score_comparison", "reasons"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^decision-[0-9]{3}-[0-9]{3}$"}, "sequence": {"type": "integer", "minimum": 0},
+        "decision_type": {"enum": ["KEEP_ASSIGNMENT", "CREATE_ASSIGNMENT", "TRANSFER_ASSIGNMENT", "REMOVE_COMPLETED", "REMOVE_CANCELLED", "UNASSIGN", "KEEP_UNASSIGNED"]},
+        "change": {"$ref": "#/$defs/change"}, "trigger_ids": {"type": "array", "items": {"type": "string"}},
+        "score_comparison": {"$ref": "#/$defs/scoreComparison"},
+        "reasons": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "returnHome": {
+      "type": "object", "required": ["uav_id", "advisory", "recommendation", "reason", "observed_value", "threshold", "explanation"],
+      "additionalProperties": false,
+      "properties": {
+        "uav_id": {"type": "string", "minLength": 1}, "advisory": {"const": true},
+        "recommendation": {"enum": ["RETURN_HOME_RECOMMENDED", "URGENT_SAFE_RETURN_OR_LANDING_RECOMMENDED"]},
+        "reason": {"enum": ["BATTERY_BELOW_RESERVE", "BATTERY_CRITICAL", "LINK_BELOW_MINIMUM"]},
+        "observed_value": {"type": "number"}, "threshold": {"type": "number"},
+        "explanation": {"type": "string", "minLength": 1}
+      }
+    },
+    "summary": {
+      "type": "object", "required": ["assignment_changes", "return_home_recommendations"], "additionalProperties": false,
+      "properties": {
+        "assignment_changes": {
+          "type": "object", "required": ["UNCHANGED", "NEW_ASSIGNMENT", "REASSIGNED", "COMPLETED", "CANCELLED", "NEWLY_UNASSIGNED", "REMAINS_UNASSIGNED"],
+          "additionalProperties": false,
+          "properties": {"UNCHANGED":{"type":"integer","minimum":0},"NEW_ASSIGNMENT":{"type":"integer","minimum":0},"REASSIGNED":{"type":"integer","minimum":0},"COMPLETED":{"type":"integer","minimum":0},"CANCELLED":{"type":"integer","minimum":0},"NEWLY_UNASSIGNED":{"type":"integer","minimum":0},"REMAINS_UNASSIGNED":{"type":"integer","minimum":0}}
+        },
+        "return_home_recommendations": {"type": "integer", "minimum": 0}
+      }
+    },
+    "snapshotResult": {
+      "type": "object", "required": ["snapshot_id", "sequence", "timestamp", "triggers", "plan", "decisions", "return_home", "summary", "deterministic_fingerprint"],
+      "additionalProperties": false,
+      "properties": {
+        "snapshot_id": {"type": "string", "minLength": 1}, "sequence": {"type": "integer", "minimum": 0},
+        "timestamp": {"type": ["string", "null"]}, "triggers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/trigger"}},
+        "plan": {"$ref": "mission_plan.schema.json"}, "decisions": {"type": "array", "items": {"$ref": "#/$defs/decision"}},
+        "return_home": {"type": "array", "items": {"$ref": "#/$defs/returnHome"}},
+        "summary": {"$ref": "#/$defs/summary"}, "deterministic_fingerprint": {"$ref": "#/$defs/fingerprint"}
+      }
+    }
+  }
+}

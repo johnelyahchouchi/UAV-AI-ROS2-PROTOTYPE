@@ -9,3 +9,5 @@ With the default score scale, every component and `base_total` is in the inclusi
 Policy loading requires the exact documented keys. Weights are nonnegative integers totaling 100, multipliers and the score scale are positive integers, and every numeric value must be finite. Battery reserve must be in `[0, 100)`, and minimum link quality must be in `[0, 1)` so normalized headroom remains well-defined.
 
 Candidates are ranked by final score, continuity, capability, battery, distance, link, workload, then lexicographically by UAV ID. Every candidate receives reasons, a full score breakdown, and safety checks. Only candidates passing all checks can be selected.
+
+The `replanning` policy section contains the Phase 2 switching margin, target-movement threshold in scenario units, critical-battery threshold, and configurable link-based return-home behavior. The 75-point switching margin and 100-scenario-unit movement threshold are research defaults, not validated operational or safety values.

@@ -19,3 +19,14 @@ $env:PYTHONPATH="$PWD\06_AGENTIC_AUTONOMY\src"
 ```
 
 See `docs/` for architecture, schemas, policy, safety rules, and limitations.
+
+## Dynamic replanning
+
+Phase 2 processes an ordered file of complete mission-state snapshots:
+
+```powershell
+$env:PYTHONPATH="$PWD\06_AGENTIC_AUTONOMY\src"
+& 'C:\Users\User\AppData\Local\Programs\Python\Python311\python.exe' -m agentic_autonomy.replan_cli --sequence 06_AGENTIC_AUTONOMY\scenarios\replanning\battery_degradation.json --policy 06_AGENTIC_AUTONOMY\config\default_policy.json --output 06_AGENTIC_AUTONOMY\outputs\replanning\battery_degradation_result.json --verbose
+```
+
+See `docs/DYNAMIC_REPLANNING.md` for lifecycle, hysteresis, workload, advisory return-home, and fingerprint rules.
