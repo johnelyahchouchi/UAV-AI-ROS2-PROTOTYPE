@@ -1,0 +1,31 @@
+{
+  "policy_version": "1.0",
+  "safety_thresholds": {
+    "minimum_battery_reserve_percent": 25.0,
+    "minimum_link_quality": 0.4,
+    "maximum_tasks_per_uav": 2,
+    "distance_normalization": 1500.0,
+    "continuity_required": false
+  },
+  "allocation_weights": {
+    "capability": 30,
+    "battery": 20,
+    "distance": 20,
+    "link_quality": 15,
+    "workload": 10,
+    "target_continuity": 5
+  },
+  "priority_multipliers": {
+    "LOW": 1000,
+    "MEDIUM": 1100,
+    "HIGH": 1250,
+    "CRITICAL": 1500
+  },
+  "score_scale": 1000,
+  "replanning": {
+    "minimum_base_score_improvement_to_switch": 75,
+    "target_movement_trigger_distance": 100.0,
+    "critical_battery_percent": 10.0,
+    "return_home_on_link_below_minimum": true
+  }
+}

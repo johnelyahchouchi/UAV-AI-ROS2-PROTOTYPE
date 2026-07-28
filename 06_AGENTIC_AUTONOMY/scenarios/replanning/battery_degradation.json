@@ -1,0 +1,22 @@
+{
+  "schema_version":"2.0","mission_id":"battery-degradation","snapshots":[
+    {"snapshot_id":"battery-001","sequence":1,"timestamp":"T0001","scenario":{"schema_version":"1.0","scenario_id":"battery-degradation","uavs":[
+      {"id":"uav-a","position":{"x":0,"y":0},"status":"AVAILABLE","capabilities":["TARGET_TRACKING"],"battery_percent":80,"link_quality":0.9,"current_workload":0,"max_workload":2,"max_task_distance":2000,"current_target_id":null},
+      {"id":"uav-b","position":{"x":800,"y":0},"status":"AVAILABLE","capabilities":["TARGET_TRACKING"],"battery_percent":80,"link_quality":0.9,"current_workload":0,"max_workload":2,"max_task_distance":2000,"current_target_id":null}],
+      "targets":[{"id":"target-1","position":{"x":100,"y":0},"priority":"HIGH","status":"DETECTED","required_capabilities":[],"continuity_uav_id":null}],"regions":[],
+      "mission_requests":[{"id":"track-target","task_type":"TRACK_TARGET","priority":"HIGH","required_capabilities":[],"target_id":"target-1","region_id":null}],"operating_region_id":null,"exclusion_region_ids":[]},
+      "task_lifecycle":[{"request_id":"track-target","state":"ACTIVE","reason":"Initial tracking task"}]},
+    {"snapshot_id":"battery-002","sequence":2,"timestamp":"T0002","scenario":{"schema_version":"1.0","scenario_id":"battery-degradation","uavs":[
+      {"id":"uav-a","position":{"x":0,"y":0},"status":"AVAILABLE","capabilities":["TARGET_TRACKING"],"battery_percent":20,"link_quality":0.9,"current_workload":0,"max_workload":2,"max_task_distance":2000,"current_target_id":null},
+      {"id":"uav-b","position":{"x":800,"y":0},"status":"AVAILABLE","capabilities":["TARGET_TRACKING"],"battery_percent":80,"link_quality":0.9,"current_workload":0,"max_workload":2,"max_task_distance":2000,"current_target_id":null}],
+      "targets":[{"id":"target-1","position":{"x":100,"y":0},"priority":"HIGH","status":"DETECTED","required_capabilities":[],"continuity_uav_id":null}],"regions":[],
+      "mission_requests":[{"id":"track-target","task_type":"TRACK_TARGET","priority":"HIGH","required_capabilities":[],"target_id":"target-1","region_id":null}],"operating_region_id":null,"exclusion_region_ids":[]},
+      "task_lifecycle":[{"request_id":"track-target","state":"ACTIVE","reason":"Tracking remains active"}]},
+    {"snapshot_id":"battery-003","sequence":3,"timestamp":"T0003","scenario":{"schema_version":"1.0","scenario_id":"battery-degradation","uavs":[
+      {"id":"uav-a","position":{"x":0,"y":0},"status":"AVAILABLE","capabilities":["TARGET_TRACKING"],"battery_percent":5,"link_quality":0.9,"current_workload":0,"max_workload":2,"max_task_distance":2000,"current_target_id":null},
+      {"id":"uav-b","position":{"x":800,"y":0},"status":"AVAILABLE","capabilities":["TARGET_TRACKING"],"battery_percent":80,"link_quality":0.9,"current_workload":0,"max_workload":2,"max_task_distance":2000,"current_target_id":null}],
+      "targets":[{"id":"target-1","position":{"x":100,"y":0},"priority":"HIGH","status":"DETECTED","required_capabilities":[],"continuity_uav_id":null}],"regions":[],
+      "mission_requests":[{"id":"track-target","task_type":"TRACK_TARGET","priority":"HIGH","required_capabilities":[],"target_id":"target-1","region_id":null}],"operating_region_id":null,"exclusion_region_ids":[]},
+      "task_lifecycle":[{"request_id":"track-target","state":"ACTIVE","reason":"Tracking remains active"}]}
+  ]
+}

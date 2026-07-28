@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mission_plan.schema.json",
+  "title": "Deterministic UAV Mission Plan",
+  "type": "object",
+  "required": ["schema_version", "planner_version", "policy_version", "scenario_id", "tasks", "assignments", "unassigned_tasks", "candidate_evaluations", "summary", "deterministic_fingerprint"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "planner_version": {"type": "string", "minLength": 1},
+    "policy_version": {"type": "string", "minLength": 1},
+    "scenario_id": {"type": "string", "minLength": 1},
+    "tasks": {"type": "array", "items": {"$ref": "#/$defs/task"}},
+    "assignments": {"type": "array", "items": {"$ref": "#/$defs/assignment"}},
+    "unassigned_tasks": {"type": "array", "items": {"$ref": "#/$defs/unassignedTask"}},
+    "candidate_evaluations": {
+      "type": "object",
+      "additionalProperties": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/candidateEvaluation"}}
+    },
+    "summary": {"$ref": "#/$defs/summary"},
+    "deterministic_fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  },
+  "$defs": {
+    "capability": {"enum": ["RECONNAISSANCE", "SURVEILLANCE", "TARGET_TRACKING", "AREA_SEARCH", "COMMUNICATION_RELAY"]},
+    "priority": {"enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]},
+    "taskType": {"enum": ["SEARCH_REGION", "OBSERVE_REGION", "INVESTIGATE_TARGET", "TRACK_TARGET", "RELAY_COMMUNICATIONS"]},
+    "point": {
+      "type": "object", "required": ["x", "y"], "additionalProperties": false,
+      "properties": {"x": {"type": "number"}, "y": {"type": "number"}}
+    },
+    "task": {
+      "type": "object",
+      "required": ["id", "request_id", "task_type", "priority", "required_capabilities", "location", "target_id", "region_id", "sequence"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "request_id": {"type": "string", "minLength": 1},
+        "task_type": {"$ref": "#/$defs/taskType"}, "priority": {"$ref": "#/$defs/priority"},
+        "required_capabilities": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/capability"}},
+        "location": {"$ref": "#/$defs/point"}, "target_id": {"type": ["string", "null"]},
+        "region_id": {"type": ["string", "null"]}, "sequence": {"type": "integer", "minimum": 1}
+      }
+    },
+    "scoreBreakdown": {
+      "type": "object",
+      "required": ["capability_score", "battery_score", "distance_score", "link_quality_score", "workload_score", "target_continuity_score", "priority_multiplier", "base_total", "final_total", "distance"],
+      "additionalProperties": false,
+      "properties": {
+        "capability_score": {"type": "integer", "minimum": 0}, "battery_score": {"type": "integer", "minimum": 0},
+        "distance_score": {"type": "integer", "minimum": 0}, "link_quality_score": {"type": "integer", "minimum": 0},
+        "workload_score": {"type": "integer", "minimum": 0}, "target_continuity_score": {"type": "integer", "minimum": 0},
+        "priority_multiplier": {"type": "integer", "minimum": 1}, "base_total": {"type": "integer", "minimum": 0},
+        "final_total": {"type": "integer", "minimum": 0}, "distance": {"type": "number", "minimum": 0}
+      }
+    },
+    "safetyCheck": {
+      "type": "object", "required": ["rule", "passed", "observed_value", "required_value", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "rule": {"enum": ["UAV_AVAILABLE", "CAPABILITY_MATCH", "BATTERY_RESERVE", "LINK_QUALITY", "WORKLOAD_LIMIT", "TASK_CAPACITY", "OPERATING_BOUNDARY", "EXCLUSION_ZONE", "TARGET_CONTINUITY"]},
+        "passed": {"type": "boolean"}, "observed_value": {}, "required_value": {}, "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "candidateEvaluation": {
+      "type": "object", "required": ["uav_id", "decision", "reasons", "score_breakdown", "safety_checks"],
+      "additionalProperties": false,
+      "properties": {
+        "uav_id": {"type": "string", "minLength": 1}, "decision": {"enum": ["APPROVED", "REJECTED"]},
+        "reasons": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "score_breakdown": {"$ref": "#/$defs/scoreBreakdown"},
+        "safety_checks": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/safetyCheck"}}
+      }
+    },
+    "assignment": {
+      "type": "object", "required": ["task_id", "uav_id", "decision", "reasons", "score_breakdown", "safety_checks"],
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {"type": "string", "minLength": 1}, "uav_id": {"type": "string", "minLength": 1},
+        "decision": {"const": "APPROVED"},
+        "reasons": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "score_breakdown": {"$ref": "#/$defs/scoreBreakdown"},
+        "safety_checks": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/safetyCheck"}}
+      }
+    },
+    "unassignedTask": {
+      "type": "object", "required": ["task_id", "decision", "reasons", "candidate_score_breakdowns"],
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {"type": "string", "minLength": 1}, "decision": {"const": "REJECTED"},
+        "reasons": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "candidate_score_breakdowns": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/scoreBreakdown"}}
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["generated_task_count", "assigned_task_count", "unassigned_task_count", "uav_assignment_counts", "all_assignments_safe"],
+      "additionalProperties": false,
+      "properties": {
+        "generated_task_count": {"type": "integer", "minimum": 0}, "assigned_task_count": {"type": "integer", "minimum": 0},
+        "unassigned_task_count": {"type": "integer", "minimum": 0},
+        "uav_assignment_counts": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+        "all_assignments_safe": {"type": "boolean"}
+      }
+    }
+  }
+}
