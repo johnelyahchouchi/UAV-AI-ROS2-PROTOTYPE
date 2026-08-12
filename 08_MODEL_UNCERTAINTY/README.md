@@ -1,4 +1,4 @@
-# UAV Model Uncertainty — Input-Perturbation Stability V1
+# UAV Model Uncertainty : Input-Perturbation Stability V1
 
 ## Problem
 
