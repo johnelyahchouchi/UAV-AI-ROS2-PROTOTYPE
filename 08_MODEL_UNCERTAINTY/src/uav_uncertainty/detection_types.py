@@ -1,4 +1,4 @@
-"""Detector-independent domain types used by the uncertainty core."""
+"""Detector-independent domain types used by the uncertainty core.Instead of letting all the other files depend directly on Ultralytics objects, you created your own simple Detection object."""
 
 from __future__ import annotations
 
