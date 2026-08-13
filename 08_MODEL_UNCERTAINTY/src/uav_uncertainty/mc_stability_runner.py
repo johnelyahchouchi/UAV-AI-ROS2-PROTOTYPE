@@ -15,10 +15,10 @@ from typing import Iterator, Sequence, TextIO
 
 import cv2
 
-from .detection_matcher import match_detection_samples
+from .analysis_engine import analyze_image
 from .detector_adapter import UltralyticsDetector
-from .perturbations import PerturbationConfig, generate_perturbations
-from .uncertainty_metrics import TargetMetrics, calculate_all_metrics
+from .perturbations import PerturbationConfig
+from .uncertainty_metrics import TargetMetrics
 
 
 SCHEMA_VERSION = "1.0"
@@ -301,13 +301,6 @@ def run_analysis(args: argparse.Namespace) -> tuple[Path, Path]:
         overwrite=args.overwrite,
     )
 
-    config = PerturbationConfig()
-    variants = generate_perturbations(
-        image,
-        sample_count=args.samples,
-        seed=args.seed,
-        config=config,
-    )
     detector = UltralyticsDetector(
         model_path,
         image_size=args.imgsz,
@@ -316,30 +309,26 @@ def run_analysis(args: argparse.Namespace) -> tuple[Path, Path]:
         device=_device_argument(args.device),
     )
 
-    print("Running clean baseline inference...")
-    detections_by_sample = [detector.detect(image)]
-    sample_metadata: list[dict[str, object]] = [
-        {
-            "sample_index": 0,
-            "family": "clean_baseline",
-            "parameters": {},
-            "detection_count": len(detections_by_sample[0]),
-        }
-    ]
-    for variant in variants:
-        print(
-            f"Running sample {variant.sample_index}/{args.samples}: "
-            f"{variant.family.value}..."
-        )
-        detections = detector.detect(variant.image)
-        detections_by_sample.append(detections)
-        metadata = variant.metadata()
-        metadata["detection_count"] = len(detections)
-        sample_metadata.append(metadata)
+    config = PerturbationConfig()
 
-    clusters = match_detection_samples(detections_by_sample, args.match_iou)
-    total_samples = len(detections_by_sample)
-    metrics = calculate_all_metrics(clusters, total_samples)
+    def console_progress(stage: str, current: int, total: int) -> None:
+        if stage == "clean_baseline":
+            print("Running clean baseline inference...")
+        elif stage.startswith("perturbation:"):
+            family = stage.partition(":")[2]
+            print(f"Running sample {current}/{total}: {family}...")
+
+    analysis = analyze_image(
+        image,
+        detector,
+        sample_count=args.samples,
+        seed=args.seed,
+        match_iou=args.match_iou,
+        perturbation_config=config,
+        progress=console_progress,
+    )
+    total_samples = len(analysis.samples)
+    metrics = analysis.metrics
     summary = build_summary(
         model_path=model_path,
         image_path=image_path,
@@ -351,7 +340,7 @@ def run_analysis(args: argparse.Namespace) -> tuple[Path, Path]:
         match_iou=args.match_iou,
         device=args.device,
         perturbation_config=config,
-        sample_metadata=sample_metadata,
+        sample_metadata=analysis.sample_metadata,
         metrics=metrics,
     )
 
