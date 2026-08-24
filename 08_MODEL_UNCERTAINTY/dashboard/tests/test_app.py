@@ -31,6 +31,9 @@ class AppTests(unittest.TestCase):
         self.assertNotIn("Monte Carlo Dropout V2", config)
         self.assertIn("Cancel", config)
         self.assertIn("Manual timestamps", config)
+        self.assertIn("Target IDs are local to each sampled frame", config)
+        self.assertIn("Review flags", config)
+        self.assertIn("display tables round metrics to three decimals", config)
 
 
 if __name__ == "__main__":

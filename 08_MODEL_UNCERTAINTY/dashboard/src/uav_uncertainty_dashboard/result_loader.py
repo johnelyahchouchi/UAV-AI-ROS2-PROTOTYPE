@@ -7,6 +7,7 @@ from pathlib import Path
 from statistics import fmean
 
 from .errors import DashboardError
+from .presentation import format_metric, mean_metric
 from .result_models import DASHBOARD_SCHEMA_VERSION, LoadedExperiment
 
 
@@ -20,9 +21,10 @@ TARGET_HEADERS = (
     "Class agreement",
     "Entropy (bits)",
     "Mean IoU",
-    "Center std x / y (px)",
-    "Size std w / h (px)",
-    "Reference source",
+    "Center std X",
+    "Center std Y",
+    "Width std",
+    "Height std",
 )
 SAMPLE_HEADERS = (
     "Sample",
@@ -110,15 +112,16 @@ def target_rows(summary: dict[str, object]) -> list[list[object]]:
                 target["target_id"],
                 target["dominant_class"],
                 f"{target['detection_count']} / {target['sample_count']}",
-                target["detection_persistence"],
-                target["confidence_mean"],
-                target["confidence_std"],
-                target["class_agreement"],
-                target["class_entropy_bits"],
-                target["mean_iou_to_reference"],
-                f"{float(center['x']):.3f} / {float(center['y']):.3f}",
-                f"{float(size['x']):.3f} / {float(size['y']):.3f}",
-                target["reference_box_source"],
+                format_metric(target["detection_persistence"]),
+                format_metric(target["confidence_mean"]),
+                format_metric(target["confidence_std"]),
+                format_metric(target["class_agreement"]),
+                format_metric(target["class_entropy_bits"]),
+                format_metric(target["mean_iou_to_reference"]),
+                format_metric(center["x"]),
+                format_metric(center["y"]),
+                format_metric(size["x"]),
+                format_metric(size["y"]),
             ]
         )
     return rows
@@ -179,31 +182,64 @@ def family_rows(samples: list[dict[str, object]]) -> list[list[object]]:
             [
                 family,
                 len(items),
-                presence_total / denominator if denominator else 0.0,
+                format_metric(presence_total / denominator if denominator else None),
                 sum(int(item["detection_count"]) for item in items),
                 sum(len(item.get("target_ids_missing", [])) for item in items),
-                fmean(deltas) if deltas else None,
+                format_metric(fmean(deltas) if deltas else None),
                 factual,
             ]
         )
     return rows
 
 
-def overview_markdown(run: LoadedExperiment) -> str:
+def overview_markdown(
+    run: LoadedExperiment,
+    *,
+    video_frame: dict[str, object] | None = None,
+    review_flag_count: int = 0,
+) -> str:
     """Return a compact, non-calibrated overview."""
     settings = run.metadata.get("configuration", {})
-    target_count = len(run.summary.get("targets", []))
+    targets = list(run.summary.get("targets", []))
+    target_count = len(targets)
+    video_context = ""
+    if video_frame is not None:
+        total_frames = len((run.video_summary or {}).get("frames", []))
+        video_context = (
+            "## Currently displaying sampled frame\n\n"
+            f"**Timestamp:** {format_metric(video_frame.get('timestamp_seconds'))} s  \n"
+            f"**Frame index:** {video_frame.get('frame_index')}  \n"
+            f"**Selection:** {video_frame.get('selection_index')} of {total_frames}  \n\n"
+            "Overview and Target Analysis show the currently selected sampled frame. "
+            "Use Video Analysis for results across the full sampled video.\n\n"
+        )
+    no_targets = ""
+    if not targets:
+        scope = " for this frame" if video_frame is not None else ""
+        no_targets = f"\n\n**No target clusters detected in any inference sample{scope}.**"
     return (
-        f"**Input:** {run.metadata.get('input_name', '')}  \n"
+        video_context
+        + f"**Input:** {run.metadata.get('input_name', '')}  \n"
         f"**Model:** {run.metadata.get('model_name', '')}  \n"
         f"**Method:** {run.metadata.get('method_name', '')} "
         f"(v{run.metadata.get('method_version', '')})  \n"
         f"**Seed / perturbations / total samples:** {settings.get('seed')} / "
         f"{settings.get('sample_count')} / {settings.get('total_inference_samples')}  \n"
-        f"**Target clusters:** {target_count}  \n"
-        f"**Detector:** imgsz={settings.get('image_size')}, conf={settings.get('confidence')}, "
-        f"NMS IoU={settings.get('nms_iou')}, match IoU={settings.get('match_iou')}, "
+        f"**Detector:** imgsz={settings.get('image_size')}, "
+        f"conf={format_metric(settings.get('confidence'))}, "
+        f"NMS IoU={format_metric(settings.get('nms_iou'))}, "
+        f"match IoU={format_metric(settings.get('match_iou'))}, "
         f"device={settings.get('device')}  \n\n"
+        "| Indicator | Value |\n"
+        "|---|---:|\n"
+        f"| Target clusters | {target_count} |\n"
+        f"| Mean persistence | {format_metric(mean_metric(targets, 'detection_persistence'))} |\n"
+        f"| Mean confidence | {format_metric(mean_metric(targets, 'confidence_mean'))} |\n"
+        f"| Mean class agreement | {format_metric(mean_metric(targets, 'class_agreement'))} |\n"
+        f"| Mean entropy | {format_metric(mean_metric(targets, 'class_entropy_bits'))} |\n"
+        f"| Mean IoU | {format_metric(mean_metric(targets, 'mean_iou_to_reference'))} |\n"
+        f"| Review flags | {review_flag_count} |"
+        f"{no_targets}\n\n"
         "Higher persistence, class agreement, and mean IoU indicate more stable observations. "
         "Lower confidence standard deviation and class entropy indicate less variation.  \n\n"
         "This dashboard measures prediction stability under controlled image perturbations. "

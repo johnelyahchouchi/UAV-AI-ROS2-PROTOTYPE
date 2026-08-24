@@ -42,6 +42,12 @@ def target(target_id: str, box: list[float], class_name: str) -> dict[str, objec
 
 
 class DiagnosticsAndAnnotationTests(unittest.TestCase):
+    def test_no_target_clusters_create_explicit_diagnostic_event(self) -> None:
+        self.assertEqual(
+            instability_events([], []),
+            ["frame: no target clusters detected in any inference sample."],
+        )
+
     def test_overlapping_cluster_diagnostic_is_non_merging_and_transparent(self) -> None:
         targets = [
             target("target_1", [0, 0, 20, 20], "military_truck"),

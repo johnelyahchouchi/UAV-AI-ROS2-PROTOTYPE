@@ -59,6 +59,9 @@ def instability_events(
     pixel_variation_threshold: float = 10.0,
 ) -> list[str]:
     """Derive factual events using explicit, visible rules."""
+    if not targets:
+        return ["frame: no target clusters detected in any inference sample."]
+
     events: list[str] = []
     for target in targets:
         target_id = str(target["target_id"])

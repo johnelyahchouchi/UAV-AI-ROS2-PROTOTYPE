@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from math import nan
 from typing import Iterable
 
 from matplotlib.figure import Figure
@@ -19,9 +20,14 @@ def _target_values(summary: dict[str, object], key: str) -> tuple[list[str], lis
     )
 
 
-def target_metrics_figure(summary: dict[str, object]) -> Figure:
+def target_metrics_figure(
+    summary: dict[str, object],
+    *,
+    is_video: bool = False,
+) -> Figure:
     """Plot five independent raw stability indicators by target."""
     figure, axes = plt.subplots(3, 2, figsize=(11, 10), constrained_layout=True)
+    targets = list(summary.get("targets", []))
     specifications = (
         ("detection_persistence", "Detection persistence", "Proportion"),
         ("confidence_mean", "Mean confidence", "Detector confidence"),
@@ -30,11 +36,37 @@ def target_metrics_figure(summary: dict[str, object]) -> Figure:
         ("mean_iou_to_reference", "Localization consistency", "Mean IoU"),
     )
     for axis, (key, title, ylabel) in zip(axes.flat, specifications):
-        labels, values = _target_values(summary, key)
-        axis.bar(labels, values, color="#3b82f6")
         axis.set_title(title)
         axis.set_xlabel("Target")
         axis.set_ylabel(ylabel)
+        if not targets:
+            message = (
+                "Class entropy: N/A\nNo detected targets to calculate class entropy."
+                if key == "class_entropy_bits"
+                else "N/A\nNo detected targets to calculate this metric."
+            )
+            axis.text(0.5, 0.5, message, ha="center", va="center", transform=axis.transAxes)
+            axis.set_xticks([])
+            axis.set_yticks([])
+            continue
+        if key == "class_entropy_bits" and all(
+            float(target[key]) == 0.0 for target in targets
+        ):
+            scope = "sampled frame" if is_video else "image"
+            axis.text(
+                0.5,
+                0.5,
+                "Class entropy: 0.000 for all targets\n"
+                f"No class disagreement observed in this {scope}.",
+                ha="center",
+                va="center",
+                transform=axis.transAxes,
+            )
+            axis.set_xticks([])
+            axis.set_yticks([])
+            continue
+        labels, values = _target_values(summary, key)
+        axis.bar(labels, values, color="#3b82f6")
         axis.tick_params(axis="x", rotation=35)
     confidence_axis = axes.flat[1]
     errors = [float(target["confidence_std"]) for target in summary.get("targets", [])]
@@ -86,7 +118,10 @@ def video_timeline_figure(frame_rows: Iterable[dict[str, object]]) -> Figure:
     figure, axis = plt.subplots(figsize=(10, 4), constrained_layout=True)
     timestamps = [float(row["timestamp_seconds"]) for row in rows]
     target_counts = [int(row["target_count"]) for row in rows]
-    persistence = [float(row["mean_persistence"]) for row in rows]
+    persistence = [
+        float(row["mean_persistence"]) if int(row["target_count"]) else nan
+        for row in rows
+    ]
     axis.plot(timestamps, target_counts, marker="o", label="Target clusters")
     axis.set_title("Video uncertainty analysis across sampled frames")
     axis.set_xlabel("Video timestamp (seconds)")

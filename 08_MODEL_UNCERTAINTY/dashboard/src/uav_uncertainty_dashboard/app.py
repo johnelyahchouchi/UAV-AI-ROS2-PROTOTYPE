@@ -51,6 +51,15 @@ from .experiment_runner import (
     VideoExperimentRequest,
 )
 from .output_manager import OutputManager
+from .presentation import (
+    FRAME_LOCAL_TARGET_NOTE,
+    display_comparison_rows,
+    display_overlap_rows,
+    entropy_status_markdown,
+    format_metric,
+    review_flags_markdown,
+    target_id_scope_note,
+)
 from .processing_control import ProcessingController
 from .result_loader import (
     FAMILY_HEADERS,
@@ -85,16 +94,16 @@ EXPERIMENT_RUNNER = ExperimentRunner(
 
 VIDEO_HEADERS = (
     "Selection",
-    "Frame index",
     "Timestamp (s)",
-    "Target clusters",
+    "Frame index",
+    "Targets",
     "Dominant classes",
     "Mean persistence",
     "Mean confidence",
     "Mean class agreement",
     "Mean entropy",
     "Mean IoU",
-    "Instability events",
+    "Review flags",
 )
 
 
@@ -207,25 +216,49 @@ def _detail_directory(run: LoadedExperiment) -> Path:
     return run.directory
 
 
+def _selected_video_record(
+    run: LoadedExperiment,
+    detail: Path,
+) -> dict[str, object] | None:
+    """Find the sampled-frame record represented by the current detail directory."""
+    if not run.video_summary:
+        return None
+    try:
+        relative = detail.relative_to(run.directory).as_posix()
+    except ValueError:
+        relative = ""
+    records = list(run.video_summary.get("frames", []))
+    return next(
+        (dict(record) for record in records if str(record.get("directory")) == relative),
+        dict(records[0]) if records else None,
+    )
+
+
 def _video_table(run: LoadedExperiment) -> list[list[object]]:
     if not run.video_summary:
         return []
-    return [
-        [
-            row["selection_index"],
-            row["frame_index"],
-            row["timestamp_seconds"],
-            row["target_count"],
-            ", ".join(row["dominant_classes"]),
-            row["mean_persistence"],
-            row["mean_confidence"],
-            row["mean_class_agreement"],
-            row["mean_entropy"],
-            row["mean_iou"],
-            " | ".join(row["instability_events"]),
-        ]
-        for row in run.video_summary.get("frames", [])
-    ]
+    rows: list[list[object]] = []
+    for record in run.video_summary.get("frames", []):
+        no_detections = int(record["target_count"]) == 0
+        events = list(record.get("instability_events", []))
+        if no_detections:
+            events = ["No detections in this sampled frame."]
+        rows.append(
+            [
+                record["selection_index"],
+                format_metric(record["timestamp_seconds"]),
+                record["frame_index"],
+                record["target_count"],
+                "No detections" if no_detections else ", ".join(record["dominant_classes"]),
+                "N/A" if no_detections else format_metric(record["mean_persistence"]),
+                "N/A" if no_detections else format_metric(record["mean_confidence"]),
+                "N/A" if no_detections else format_metric(record["mean_class_agreement"]),
+                "N/A" if no_detections else format_metric(record["mean_entropy"]),
+                "N/A" if no_detections else format_metric(record["mean_iou"]),
+                " | ".join(str(item) for item in events),
+            ]
+        )
+    return rows
 
 
 def _exports(root: Path, detail: Path) -> list[str]:
@@ -243,6 +276,8 @@ def _exports(root: Path, detail: Path) -> list[str]:
 
 def _render(run: LoadedExperiment, status: str) -> tuple[object, ...]:
     detail = _detail_directory(run)
+    video_frame = _selected_video_record(run, detail)
+    is_video = video_frame is not None or run.metadata.get("parent_input_kind") == "Video"
     targets = list(run.summary.get("targets", []))
     overlaps = overlapping_cluster_rows(
         targets,
@@ -257,12 +292,18 @@ def _render(run: LoadedExperiment, status: str) -> tuple[object, ...]:
     video_records = list((run.video_summary or {}).get("frames", []))
     video_choices = [str(item["selection_index"]) for item in video_records]
     state = {"root": str(run.directory), "detail": str(detail)}
-    event_text = "\n".join(f"- {item}" for item in events) or "No instability event rule was triggered."
     return (
         status,
         state,
-        overview_markdown(run) + f"\n\n{schema_note(run)}",
-        target_metrics_figure(run.summary),
+        overview_markdown(
+            run,
+            video_frame=video_frame,
+            review_flag_count=len(events),
+        )
+        + f"\n\n{schema_note(run)}",
+        target_metrics_figure(run.summary, is_video=is_video),
+        entropy_status_markdown(run.summary, is_video=is_video),
+        target_id_scope_note(is_video),
         target_rows(run.summary),
         gr.Dropdown(choices=target_choices, value=selected_target),
         target_detail(run.summary, selected_target or ""),
@@ -272,8 +313,8 @@ def _render(run: LoadedExperiment, status: str) -> tuple[object, ...]:
         gr.Dropdown(choices=sample_choices, value=selected_sample),
         str(preview) if preview.is_file() else None,
         run.samples[0] if run.samples else {},
-        overlaps,
-        event_text,
+        display_overlap_rows(overlaps),
+        review_flags_markdown(events),
         _video_table(run),
         video_timeline_figure(video_records) if video_records else None,
         gr.Dropdown(choices=video_choices, value=video_choices[0] if video_choices else None),
@@ -409,18 +450,45 @@ def select_video_frame(
     if not root_run.video_summary:
         raise gr.Error("The current run is not a video experiment.")
     record = next(
-        item
-        for item in root_run.video_summary["frames"]
-        if int(item["selection_index"]) == int(selection_value)
+        (
+            item
+            for item in root_run.video_summary["frames"]
+            if int(item["selection_index"]) == int(selection_value)
+        ),
+        None,
     )
+    if record is None:
+        raise gr.Error("The selected sampled frame is not present in this run.")
     detail = root_run.directory / str(record["directory"])
     frame_run = load_run(detail)
     targets = list(frame_run.summary.get("targets", []))
     choices = [str(target["target_id"]) for target in targets]
     sample_choices = [str(item["sample_index"]) for item in frame_run.samples]
     new_state = {"root": str(root_run.directory), "detail": str(detail)}
+    selected_run = LoadedExperiment(
+        root_run.directory,
+        root_run.metadata,
+        frame_run.summary,
+        frame_run.samples,
+        root_run.video_summary,
+    )
+    overlaps = overlapping_cluster_rows(
+        targets,
+        float(root_run.metadata.get("configuration", {}).get("overlap_iou", DEFAULT_OVERLAP_IOU)),
+    )
+    events = instability_events(targets, overlaps)
+    preview = detail / "previews" / "sample_000.jpg"
     return (
         new_state,
+        overview_markdown(
+            selected_run,
+            video_frame=dict(record),
+            review_flag_count=len(events),
+        )
+        + f"\n\n{schema_note(root_run)}",
+        target_metrics_figure(frame_run.summary, is_video=True),
+        entropy_status_markdown(frame_run.summary, is_video=True),
+        target_id_scope_note(True),
         target_rows(frame_run.summary),
         gr.Dropdown(choices=choices, value=choices[0] if choices else None),
         target_detail(frame_run.summary, choices[0] if choices else ""),
@@ -428,10 +496,13 @@ def select_video_frame(
         family_rows(frame_run.samples),
         sample_detection_figure(frame_run.samples),
         gr.Dropdown(choices=sample_choices, value=sample_choices[0] if sample_choices else None),
-        str(detail / "previews" / "sample_000.jpg"),
+        str(preview) if preview.is_file() else None,
         frame_run.samples[0] if frame_run.samples else {},
+        display_overlap_rows(overlaps),
+        review_flags_markdown(events),
         frame_run.summary,
         frame_run.samples,
+        target_rows(frame_run.summary),
     )
 
 
@@ -446,7 +517,7 @@ def compare_saved_runs(path_values: list[str] | None) -> tuple[list[list[object]
         name = datetime.now(timezone.utc).strftime("comparison_%Y%m%dT%H%M%S_") + uuid.uuid4().hex[:8] + ".csv"
         path = output_dir / name
         write_comparison_csv(path, rows)
-        return rows, comparison_figure(runs), str(path)
+        return display_comparison_rows(rows), comparison_figure(runs), str(path)
     except DashboardError as error:
         raise gr.Error(error.user_message()) from error
 
@@ -499,7 +570,7 @@ def run_sample_batch(
         selected = [str(run.directory) for run in runs]
         return (
             f"Completed {len(runs)} sequential experiments. No concurrent model inference was used.",
-            rows,
+            display_comparison_rows(rows),
             comparison_figure(runs),
             str(path),
             gr.Dropdown(choices=choices, multiselect=True, value=selected),
@@ -515,6 +586,8 @@ def clear_results() -> tuple[object, ...]:
         None,
         "",
         None,
+        "",
+        "",
         [],
         gr.Dropdown(choices=[], value=None),
         {},
@@ -609,17 +682,25 @@ def build_app() -> gr.Blocks:
             with gr.Tab("Overview"):
                 overview = gr.Markdown()
                 overview_plot = gr.Plot(label="Target stability indicators")
+                entropy_status = gr.Markdown()
 
             with gr.Tab("Target Analysis"):
-                target_table = gr.Dataframe(headers=list(TARGET_HEADERS), interactive=False, wrap=True)
+                target_scope_note = gr.Markdown()
+                target_table = gr.Dataframe(
+                    headers=list(TARGET_HEADERS),
+                    interactive=False,
+                    wrap=True,
+                    column_widths=[110, 180, 110, 110, 130, 120, 130, 110, 100, 110, 110, 100, 100],
+                    pinned_columns=3,
+                )
                 with gr.Row():
                     target_selector = gr.Dropdown(label="Select target")
                     sample_selector = gr.Dropdown(label="Select clean/perturbed sample")
                 target_detail_json = gr.JSON(label="Selected target metrics")
                 sample_image = gr.Image(label="Detection inspection", interactive=False)
                 sample_detail_json = gr.JSON(label="Selected sample and perturbation parameters")
-                overlap_table = gr.Dataframe(headers=list(OVERLAP_HEADERS), interactive=False, wrap=True, label="Possible overlapping/alternative detections")
-                instability_markdown = gr.Markdown()
+                overlap_table = gr.Dataframe(headers=list(OVERLAP_HEADERS), interactive=False, wrap=True, label="Overlap diagnostics (review flags)")
+                instability_markdown = gr.Markdown("### Review flags")
 
             with gr.Tab("Perturbation Analysis"):
                 sample_table = gr.Dataframe(headers=list(SAMPLE_HEADERS), interactive=False, wrap=True)
@@ -627,7 +708,14 @@ def build_app() -> gr.Blocks:
                 sample_plot = gr.Plot(label="Detections by sample")
 
             with gr.Tab("Video Analysis"):
-                video_table = gr.Dataframe(headers=list(VIDEO_HEADERS), interactive=False, wrap=True)
+                gr.Markdown(f"> **Frame-local IDs:** {FRAME_LOCAL_TARGET_NOTE}")
+                video_table = gr.Dataframe(
+                    headers=list(VIDEO_HEADERS),
+                    interactive=False,
+                    wrap=True,
+                    column_widths=[90, 110, 100, 80, 260, 120, 120, 140, 110, 100, 420],
+                    pinned_columns=4,
+                )
                 video_plot = gr.Plot(label="Sampled-frame timeline")
                 with gr.Row():
                     video_frame_selector = gr.Dropdown(label="Open sampled frame")
@@ -649,9 +737,17 @@ def build_app() -> gr.Blocks:
 
             with gr.Tab("Raw Results"):
                 raw_summary = gr.JSON(label="Core summary JSON")
-                raw_target_table = gr.Dataframe(headers=list(TARGET_HEADERS), interactive=False, wrap=True, label="Raw target table")
+                raw_target_table = gr.Dataframe(
+                    headers=list(TARGET_HEADERS),
+                    interactive=False,
+                    wrap=True,
+                    label="Target display table (rounded)",
+                    column_widths=[110, 180, 110, 110, 130, 120, 130, 110, 100, 110, 110, 100, 100],
+                    pinned_columns=3,
+                )
                 raw_samples = gr.JSON(label="Enriched sample metadata")
                 raw_metadata = gr.JSON(label="Dashboard experiment metadata")
+                gr.Markdown("Raw JSON above retains the stored numeric precision; display tables round metrics to three decimals.")
 
             with gr.Tab("Exports"):
                 export_files = gr.File(label="Download generated result files", file_count="multiple", interactive=False)
@@ -662,6 +758,8 @@ def build_app() -> gr.Blocks:
             run_state,
             overview,
             overview_plot,
+            entropy_status,
+            target_scope_note,
             target_table,
             target_selector,
             target_detail_json,
@@ -763,6 +861,10 @@ def build_app() -> gr.Blocks:
             [run_state, video_frame_selector],
             [
                 run_state,
+                overview,
+                overview_plot,
+                entropy_status,
+                target_scope_note,
                 target_table,
                 target_selector,
                 target_detail_json,
@@ -772,8 +874,11 @@ def build_app() -> gr.Blocks:
                 sample_selector,
                 sample_image,
                 sample_detail_json,
+                overlap_table,
+                instability_markdown,
                 raw_summary,
                 raw_samples,
+                raw_target_table,
             ],
             queue=False,
         )
