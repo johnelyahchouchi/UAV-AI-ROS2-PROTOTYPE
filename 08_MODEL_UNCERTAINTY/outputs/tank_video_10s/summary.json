@@ -1,0 +1,303 @@
+{
+  "detector_configuration": {
+    "confidence_threshold": 0.25,
+    "device": "0",
+    "image_size": 960,
+    "nms_iou_threshold": 0.45
+  },
+  "input": {
+    "image": "C:\\Users\\User\\Desktop\\UAV-AI-ROS2-PROTOTYPE\\08_MODEL_UNCERTAINTY\\video_test_frames\\tank_10s.jpg",
+    "model": "C:\\Users\\User\\Desktop\\UAV_MODELS\\military_kaggle_v1.pt"
+  },
+  "matching": {
+    "class_agnostic": true,
+    "iou_threshold": 0.5,
+    "one_detection_per_cluster_per_sample": true,
+    "running_reference": "mean_of_previous_cluster_boxes",
+    "strategy": "deterministic_greedy_highest_iou"
+  },
+  "method": "monte_carlo_input_perturbation_v1",
+  "method_scope": "Robustness analysis under controlled input variations; not Monte Carlo Dropout and not a calibrated probability of correctness.",
+  "metric_definitions": {
+    "bbox_variation": "population standard deviation in source-image pixels",
+    "class_agreement": "dominant class count / detected observations",
+    "class_entropy_bits": "Shannon entropy using log base 2",
+    "confidence_std": "population standard deviation",
+    "detection_persistence": "detection_count / total_inference_sample_count",
+    "mean_iou_to_reference": "mean IoU to clean baseline box when available, otherwise mean box"
+  },
+  "sampling": {
+    "clean_baseline_count": 1,
+    "perturbation_config": {
+      "blur_kernel_sizes": [
+        3
+      ],
+      "blur_sigma": [
+        0.35,
+        0.9
+      ],
+      "brightness_gain": [
+        0.94,
+        1.06
+      ],
+      "brightness_offset": [
+        -4.0,
+        4.0
+      ],
+      "contrast_gain": [
+        0.92,
+        1.08
+      ],
+      "jpeg_quality": [
+        80,
+        95
+      ],
+      "noise_sigma": [
+        1.0,
+        4.0
+      ]
+    },
+    "perturbation_count": 10,
+    "samples": [
+      {
+        "detection_count": 2,
+        "family": "clean_baseline",
+        "parameters": {},
+        "sample_index": 0
+      },
+      {
+        "detection_count": 3,
+        "family": "brightness",
+        "parameters": {
+          "gain": 1.0328747258267157,
+          "offset": -0.48897248198358145
+        },
+        "sample_index": 1
+      },
+      {
+        "detection_count": 2,
+        "family": "contrast",
+        "parameters": {
+          "gain": 1.0573756671858212
+        },
+        "sample_index": 2
+      },
+      {
+        "detection_count": 2,
+        "family": "gaussian_blur",
+        "parameters": {
+          "kernel_size": 3,
+          "sigma": 0.7335524159826501
+        },
+        "sample_index": 3
+      },
+      {
+        "detection_count": 2,
+        "family": "gaussian_noise",
+        "parameters": {
+          "sigma": 1.2825320436629486
+        },
+        "sample_index": 4
+      },
+      {
+        "detection_count": 3,
+        "family": "jpeg_compression",
+        "parameters": {
+          "quality": 89
+        },
+        "sample_index": 5
+      },
+      {
+        "detection_count": 2,
+        "family": "brightness",
+        "parameters": {
+          "gain": 1.0392016599971368,
+          "offset": 1.6284177340413093
+        },
+        "sample_index": 6
+      },
+      {
+        "detection_count": 3,
+        "family": "contrast",
+        "parameters": {
+          "gain": 1.0395109685454138
+        },
+        "sample_index": 7
+      },
+      {
+        "detection_count": 2,
+        "family": "gaussian_blur",
+        "parameters": {
+          "kernel_size": 3,
+          "sigma": 0.8210366146911854
+        },
+        "sample_index": 8
+      },
+      {
+        "detection_count": 2,
+        "family": "gaussian_noise",
+        "parameters": {
+          "sigma": 2.538291396557755
+        },
+        "sample_index": 9
+      },
+      {
+        "detection_count": 3,
+        "family": "jpeg_compression",
+        "parameters": {
+          "quality": 92
+        },
+        "sample_index": 10
+      }
+    ],
+    "seed": 42,
+    "total_inference_sample_count": 11
+  },
+  "schema_version": "1.0",
+  "target_count": 3,
+  "targets": [
+    {
+      "bbox_center_std_pixels": {
+        "x": 0.2006416615825676,
+        "y": 0.32688614337264293
+      },
+      "bbox_size_std_pixels": {
+        "x": 0.3459533976359366,
+        "y": 0.5723632592590281
+      },
+      "class_agreement": 1.0,
+      "class_distribution": {
+        "military_truck": 1.0
+      },
+      "class_entropy_bits": 0.0,
+      "class_histogram": {
+        "military_truck": 10
+      },
+      "confidence_mean": 0.2870767921209335,
+      "confidence_std": 0.02038140609860627,
+      "detected_sample_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10
+      ],
+      "detection_count": 10,
+      "detection_persistence": 0.9090909090909091,
+      "dominant_class": "military_truck",
+      "mean_iou_to_reference": 0.9871820198794404,
+      "missing_sample_indices": [
+        9
+      ],
+      "reference_bbox_xyxy": [
+        394.0321044921875,
+        424.81536865234375,
+        514.6845092773438,
+        484.4949035644531
+      ],
+      "reference_box_source": "clean_baseline",
+      "sample_count": 11,
+      "target_id": "target_1"
+    },
+    {
+      "bbox_center_std_pixels": {
+        "x": 0.08049876762663033,
+        "y": 0.07827253662303972
+      },
+      "bbox_size_std_pixels": {
+        "x": 0.41294772221176895,
+        "y": 0.14745656242611524
+      },
+      "class_agreement": 1.0,
+      "class_distribution": {
+        "military_tank": 1.0
+      },
+      "class_entropy_bits": 0.0,
+      "class_histogram": {
+        "military_tank": 11
+      },
+      "confidence_mean": 0.7242045185782693,
+      "confidence_std": 0.007227787589261301,
+      "detected_sample_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      "detection_count": 11,
+      "detection_persistence": 1.0,
+      "dominant_class": "military_tank",
+      "mean_iou_to_reference": 0.9937701802414995,
+      "missing_sample_indices": [],
+      "reference_bbox_xyxy": [
+        1359.0445556640625,
+        246.69943237304688,
+        1465.1009521484375,
+        303.01568603515625
+      ],
+      "reference_box_source": "clean_baseline",
+      "sample_count": 11,
+      "target_id": "target_2"
+    },
+    {
+      "bbox_center_std_pixels": {
+        "x": 0.18346462436696778,
+        "y": 0.20186469634160029
+      },
+      "bbox_size_std_pixels": {
+        "x": 0.18937996070961519,
+        "y": 0.292898340029488
+      },
+      "class_agreement": 1.0,
+      "class_distribution": {
+        "military_artillery": 1.0
+      },
+      "class_entropy_bits": 0.0,
+      "class_histogram": {
+        "military_artillery": 5
+      },
+      "confidence_mean": 0.26782076954841616,
+      "confidence_std": 0.012859750693625622,
+      "detected_sample_indices": [
+        1,
+        5,
+        7,
+        9,
+        10
+      ],
+      "detection_count": 5,
+      "detection_persistence": 0.45454545454545453,
+      "dominant_class": "military_artillery",
+      "mean_iou_to_reference": 0.9911227927697104,
+      "missing_sample_indices": [
+        0,
+        2,
+        3,
+        4,
+        6,
+        8
+      ],
+      "reference_bbox_xyxy": [
+        392.65485229492185,
+        424.62330932617186,
+        512.5443603515625,
+        484.40126342773436
+      ],
+      "reference_box_source": "mean_observed_box",
+      "sample_count": 11,
+      "target_id": "target_3"
+    }
+  ]
+}
