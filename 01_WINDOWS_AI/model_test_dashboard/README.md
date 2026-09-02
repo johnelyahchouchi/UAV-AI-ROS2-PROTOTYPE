@@ -21,18 +21,16 @@ It does not support webcams, RTSP, live partial-video output, TCP, or ROS 2.
 
 ## Dedicated Python environment
 
-Do not use bare `python` on this workstation. It launches Amesim Python 2.7.
-
-The verified environment is:
+Use a dedicated Python environment. The repository-local default is:
 
 ```text
-%USERPROFILE%\Desktop\UAV_YOLO_ENV\Scripts\python.exe
+<repository>\.venv\Scripts\python.exe
 ```
 
 The launcher resolves Python in this order:
 
 1. `UAV_YOLO_PYTHON`, when set.
-2. `%USERPROFILE%\Desktop\UAV_YOLO_ENV\Scripts\python.exe`.
+2. `<repository>\.venv\Scripts\python.exe`.
 3. A clear failure. It never silently falls back to another Python.
 
 ## Install dashboard-only dependencies
@@ -46,7 +44,7 @@ From this directory:
 $Python = if ($env:UAV_YOLO_PYTHON) {
     $env:UAV_YOLO_PYTHON
 } else {
-    Join-Path $env:USERPROFILE "Desktop\UAV_YOLO_ENV\Scripts\python.exe"
+    Join-Path (Resolve-Path "..\..") ".venv\Scripts\python.exe"
 }
 
 & $Python -m pip install `
@@ -79,16 +77,17 @@ NVIDIA GeForce RTX 2060
 
 ## Default model
 
-`UAV_MODEL_PATH` takes precedence. Otherwise:
+`UAV_MODEL_PATH` takes precedence. `UAV_MODELS_DIR` can relocate the complete model
+tree. Otherwise the repository-derived default is:
 
 ```text
-%USERPROFILE%\Desktop\UAV_MODELS\military_kaggle_v1.pt
+03_MODELS\active\detector\military_kaggle_v1.pt
 ```
 
-The model remains outside this repository. The model cache is keyed by canonical
-path, file size, and modification time. Selecting an unchanged model reuses the
-loaded object. A repository-local weight can be tested, but the dashboard warns
-that model weights should not be newly committed.
+Weights are not included in a source-only clone. They may be placed in the ignored
+`03_MODELS/` layout or kept externally with an override. The model cache is keyed by
+canonical path, file size, and modification time. Selecting an unchanged model reuses
+the loaded object, and repository-local weights must not be committed.
 
 ## Launch
 
@@ -181,7 +180,12 @@ From this directory:
 
 ```powershell
 $env:PYTHONPATH = Join-Path $PWD "src"
-& "$env:USERPROFILE\Desktop\UAV_YOLO_ENV\Scripts\python.exe" -m pytest -q
+$Python = if ($env:UAV_YOLO_PYTHON) {
+    $env:UAV_YOLO_PYTHON
+} else {
+    Join-Path (Resolve-Path "..\..") ".venv\Scripts\python.exe"
+}
+& $Python -m pytest -q
 ```
 
 Automated tests use fake model results and synthetic videos. They do not require

@@ -11,6 +11,10 @@ The current structure includes:
 
 This is the base structure as first prototype that the project will continue to follow.
 
+Filesystem paths are portable and repository-anchored. See
+`00_PROJECT_GUIDE/PORTABLE_PATHS.md` for optional model, dataset, media, output, and
+Python-environment overrides.
+
 
 # UAV AI ROS2 Prototype
 

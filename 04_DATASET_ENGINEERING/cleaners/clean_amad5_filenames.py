@@ -1,10 +1,19 @@
+import os
 from pathlib import Path
 import shutil
+import sys
 
-SRC = Path(r"C:\uav_datasets_master\05_amad5_aerial_military_5class")
-DST = Path(r"C:\uav_datasets_master\05_amad5_aerial_military_5class_clean")
 
-CONFIG_DIR = Path(r"C:\Users\UAVlab\Desktop\uav_ai_company\training_configs")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import AMAD5_CLEAN_DATASET_DIR, AMAD5_DATASET_DIR
+
+
+SRC = AMAD5_DATASET_DIR
+DST = AMAD5_CLEAN_DATASET_DIR
+CONFIG_DIR = PROJECT_ROOT / "05_TRAINING" / "configs" / "training_configs"
 CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
@@ -13,6 +22,8 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 def long_path(p: Path) -> str:
     p = p.resolve()
     s = str(p)
+    if os.name != "nt":
+        return s
     if s.startswith("\\\\?\\"):
         return s
     return "\\\\?\\" + s
@@ -81,7 +92,7 @@ for split in ["train", "val", "test"]:
 
     print(f"{split}: images={split_images}, labels={split_labels}")
 
-yaml_text = """path: C:/uav_datasets_master/05_amad5_aerial_military_5class_clean
+yaml_text = f"""path: {DST.as_posix()}
 train: train/images
 val: val/images
 test: test/images

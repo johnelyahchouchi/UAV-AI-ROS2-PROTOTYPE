@@ -4,6 +4,7 @@
 
 import csv
 import json
+import sys
 import time
 from collections import OrderedDict, deque
 from datetime import datetime
@@ -15,6 +16,13 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import OUTPUTS_DIR
 
 
 WINDOW_NAME = "UAV Tank Type Timeline Dashboard V1"
@@ -179,7 +187,7 @@ class UAVTankTypeTimelineDashboard(Node):
 
         self.last_seen_signature = {}
 
-        self.output_dir = Path.home() / "uav_demo_outputs"
+        self.output_dir = OUTPUTS_DIR / "ros2_dashboards"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.csv_path = self.output_dir / "tank_type_timeline_events.csv"
@@ -350,7 +358,7 @@ class UAVTankTypeTimelineDashboard(Node):
         draw_text(canvas, f"Active Platforms: {active_count}", 230, 70, WHITE, 0.5, 1)
         draw_text(canvas, f"Critical: {critical_count}", 430, 70, RED, 0.5, 1)
         draw_text(canvas, f"High: {high_count}", 560, 70, ORANGE, 0.5, 1)
-        draw_text(canvas, "CSV: ~/uav_demo_outputs/tank_type_timeline_events.csv", 720, 70, GRAY, 0.42, 1)
+        draw_text(canvas, f"CSV: {self.csv_path}", 720, 70, GRAY, 0.42, 1)
 
         cv2.rectangle(canvas, (25, 100), (1175, 330), DARK, -1)
         cv2.rectangle(canvas, (25, 100), (1175, 330), GRAY, 1)

@@ -1,5 +1,6 @@
 import ast
 import re
+import sys
 import zipfile
 from collections import defaultdict
 from pathlib import Path
@@ -8,13 +9,14 @@ import cv2
 import numpy as np
 
 
-ZIP_DIR = Path(
-    r"C:\uav_datasets_master\07_tank_platform_recognition\03_downloaded_roboflow_zips"
-)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-RAW_DIR = Path(
-    r"C:\uav_datasets_master\07_tank_platform_recognition\00_raw_by_class"
-)
+from project_paths import TANK_RECOGNITION_DATASET_DIR
+
+ZIP_DIR = TANK_RECOGNITION_DATASET_DIR / "03_downloaded_roboflow_zips"
+RAW_DIR = TANK_RECOGNITION_DATASET_DIR / "00_raw_by_class"
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 

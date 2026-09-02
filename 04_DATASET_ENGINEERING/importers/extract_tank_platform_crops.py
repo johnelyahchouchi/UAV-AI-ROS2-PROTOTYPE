@@ -1,13 +1,26 @@
 from pathlib import Path
+import sys
 import cv2
 from ultralytics import YOLO
 
 
-PROJECT_DIR = Path(r"C:\Users\UAVlab\Desktop\uav_ai_company")
-DATASET_DIR = Path(r"C:\uav_datasets_master\07_tank_platform_recognition")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-MODEL_PATH = PROJECT_DIR / "military_kaggle_v1.pt"
-VIDEO_PATH = PROJECT_DIR / "1minutesVIEWdroneVIDEOTANKS.mp4"
+from project_paths import (
+    ACTIVE_DETECTOR_MODEL,
+    TANK_RECOGNITION_DATASET_DIR,
+    TEST_MEDIA_DIR,
+    configured_path,
+)
+
+DATASET_DIR = TANK_RECOGNITION_DATASET_DIR
+MODEL_PATH = ACTIVE_DETECTOR_MODEL
+VIDEO_PATH = configured_path(
+    "UAV_TANK_VIDEO_PATH",
+    TEST_MEDIA_DIR / "videos" / "1minutesVIEWdroneVIDEOTANKS.mp4",
+)
 
 RAW_DIR = DATASET_DIR / "00_raw_by_class"
 OUTPUT_REVIEW_DIR = RAW_DIR / "99_uncertain_review"
@@ -58,6 +71,17 @@ def safe_crop(frame, x1, y1, x2, y2, pad_ratio=0.12):
 
 
 def main():
+    if not MODEL_PATH.is_file():
+        raise FileNotFoundError(
+            f"Model not found: {MODEL_PATH}. Set UAV_MODEL_PATH or place the model "
+            "in the expected models directory."
+        )
+    if not VIDEO_PATH.is_file():
+        raise FileNotFoundError(
+            f"Video not found: {VIDEO_PATH}. Set UAV_TANK_VIDEO_PATH or place the "
+            "video in the configured test-media directory."
+        )
+
     OUTPUT_REVIEW_DIR.mkdir(parents=True, exist_ok=True)
 
     print("Loading model:")

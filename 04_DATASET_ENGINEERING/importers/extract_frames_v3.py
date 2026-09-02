@@ -1,7 +1,16 @@
 import cv2
+import sys
 from pathlib import Path
 
-BASE = Path(r"C:\Users\UAVlab\Desktop\uav_ai_company\dataset_v3_military_multiclass")
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import MULTICLASS_DATASET_DIR
+
+
+BASE = MULTICLASS_DATASET_DIR
 VIDEO_DIR = BASE / "00_raw_videos"
 OUT_DIR = BASE / "01_extracted_frames"
 

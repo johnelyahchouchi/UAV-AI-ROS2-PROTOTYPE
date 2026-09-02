@@ -1,11 +1,17 @@
 ﻿param(
-    [string]$Source = "$env:USERPROFILE\Desktop\uav_ai_company",
-    [string]$CleanProject = "$env:USERPROFILE\Desktop\UAV_AI_ROS2_CLEAN",
+    [Parameter(Mandatory = $true)]
+    [string]$Source,
+
+    [string]$CleanProject = "",
     [switch]$ArchiveCandidates
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ([string]::IsNullOrWhiteSpace($CleanProject)) {
+    $CleanProject = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
+}
 
 if (-not (Test-Path -LiteralPath $Source)) {
     throw "Source folder not found: $Source"

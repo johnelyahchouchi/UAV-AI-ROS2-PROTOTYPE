@@ -1,8 +1,22 @@
 import cv2
+import sys
 from pathlib import Path
 
-INPUT_DIR = Path(r"C:\Users\UAVlab\Desktop\uav_ai_company\BTR.v1i.yolov8\test\images")
-OUTPUT_VIDEO = Path(r"C:\Users\UAVlab\Desktop\uav_ai_company\btr_demo.mp4")
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import BTR_DATASET_DIR, OUTPUTS_DIR, configured_path
+
+
+INPUT_DIR = configured_path(
+    "UAV_BTR_DEMO_IMAGES_DIR", BTR_DATASET_DIR / "test" / "images"
+)
+OUTPUT_VIDEO = configured_path(
+    "UAV_BTR_DEMO_VIDEO_PATH", OUTPUTS_DIR / "windows_ai" / "btr_demo.mp4"
+)
+OUTPUT_VIDEO.parent.mkdir(parents=True, exist_ok=True)
 
 images = []
 for ext in ["*.jpg", "*.jpeg", "*.png"]:

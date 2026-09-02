@@ -3,10 +3,24 @@ import json
 import socket
 import struct
 import subprocess
+import sys
 import time
+from pathlib import Path
 
 import cv2
 from ultralytics import YOLO
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import ACTIVE_DETECTOR_MODEL, TEST_MEDIA_DIR, configured_path
+
+
+DEFAULT_VIDEO_SOURCE = configured_path(
+    "UAV_DEFAULT_VIDEO_PATH", TEST_MEDIA_DIR / "videos" / "vehicles.mp4"
+)
 
 
 MILITARY_KEYWORDS = [
@@ -54,7 +68,42 @@ def resolve_source(source: str) -> str:
             text=True
         ).strip().splitlines()[0]
         return url
-    return source
+
+    if "://" in source or source.isdigit():
+        return source
+
+    candidate = Path(source).expanduser()
+    candidates = [candidate] if candidate.is_absolute() else [
+        PROJECT_ROOT / candidate,
+        TEST_MEDIA_DIR / "videos" / candidate,
+    ]
+    for path in candidates:
+        if path.is_file():
+            return str(path.resolve())
+
+    expected = candidates[-1]
+    raise FileNotFoundError(
+        f"Video source not found: {source}. Pass --source with an existing file, "
+        f"URL, or camera index, or place the file in {expected.parent}."
+    )
+
+
+def resolve_model_path(value: str) -> Path:
+    """Resolve and validate an explicitly configured or repository-default model."""
+
+    candidate = Path(value).expanduser()
+    candidates = [candidate] if candidate.is_absolute() else [
+        PROJECT_ROOT / candidate,
+        ACTIVE_DETECTOR_MODEL.parent / candidate,
+    ]
+    for path in candidates:
+        if path.is_file():
+            return path.resolve()
+
+    raise FileNotFoundError(
+        f"Model not found: {value}. Set UAV_MODEL_PATH or place the model at "
+        f"{ACTIVE_DETECTOR_MODEL}."
+    )
 
 
 def get_yolo_class_name(model, cls_id):
@@ -242,8 +291,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--target", required=True, help="Ubuntu VM IP")
     parser.add_argument("--port", type=int, default=5010)
-    parser.add_argument("--source", default="vehicles.mp4")
-    parser.add_argument("--model", default="military_kaggle_v1.pt")
+    parser.add_argument(
+        "--source",
+        default=str(DEFAULT_VIDEO_SOURCE),
+    )
+    parser.add_argument("--model", default=str(ACTIVE_DETECTOR_MODEL))
     parser.add_argument("--conf", type=float, default=0.25)
     parser.add_argument("--iou", type=float, default=0.45)
     parser.add_argument("--imgsz", type=int, default=960)
@@ -255,11 +307,12 @@ def main():
     args = parser.parse_args()
 
     source = resolve_source(args.source)
+    model_path = resolve_model_path(args.model)
 
     print("Opening source:", source)
-    print("Loading YOLO model:", args.model)
+    print("Loading YOLO model:", model_path)
 
-    model = YOLO(args.model)
+    model = YOLO(str(model_path))
 
     print("Model classes:", getattr(model, "names", {}))
     print("Tracker:", args.tracker)
@@ -367,7 +420,7 @@ def main():
                 detections.append({
                     "uav_id": "uav_1",
                     "source": "windows_gpu_yolo_tcp_botsort_threat",
-                    "model": args.model,
+                    "model": str(model_path),
 
                     "class": class_name,
                     "class_name": class_name,

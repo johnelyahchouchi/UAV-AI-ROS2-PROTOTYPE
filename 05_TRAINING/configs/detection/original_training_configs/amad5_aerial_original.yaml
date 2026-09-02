@@ -1,7 +1,6 @@
-path: C:/uav_datasets_master/05_amad5_aerial_military_5class_clean
-train: train/images
-val: val/images
-test: test/images
+train: ../../../../datasets/05_amad5_aerial_military_5class_clean/train/images
+val: ../../../../datasets/05_amad5_aerial_military_5class_clean/val/images
+test: ../../../../datasets/05_amad5_aerial_military_5class_clean/test/images
 
 nc: 5
 names:

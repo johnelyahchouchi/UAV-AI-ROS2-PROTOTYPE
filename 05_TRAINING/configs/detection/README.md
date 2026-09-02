@@ -16,13 +16,10 @@ Historical configuration:
 
 `original_training_configs/btr_original.yaml`
 
-Original dataset location:
-
-`C:\Users\UAVlab\Desktop\uav_ai_company\BTR.v1i.yolov8`
-
 Status:
 
-Dataset currently exists, but it remains tied to the old project directory.
+The normalized configuration uses the repository-local `datasets/01_detection/BTR_v1`
+layout. Training scripts can instead use `UAV_BTR_DATASET_DIR`.
 
 ## Military Kaggle detector
 
@@ -30,16 +27,16 @@ Historical configuration:
 
 `original_training_configs/military_kaggle_original.yaml`
 
-Original dataset location:
-
-`C:\Users\UAVlab\Desktop\uav_ai_company\big_datasets\01_kaggle_military_assets\military_object_dataset`
-
 Status:
 
-Dataset currently exists, but it remains tied to the old project directory.
+The normalized configuration uses the repository-local
+`datasets/01_detection/military_kaggle_v1` layout. Training scripts can instead use
+`UAV_KAGGLE_DATASET_DIR`.
 
 ## Rule
 
-Original YAML files are preserved unchanged for traceability.
+The original class/split metadata is preserved, while machine-local dataset roots are
+normalized to repository-relative split paths.
 
-Future reproducible configurations must use documented dataset-root variables or clean dataset-master locations instead of depending on the old `uav_ai_company` folder.
+Future reproducible configurations must use documented dataset-root variables or the
+repository-local `datasets/` layout.

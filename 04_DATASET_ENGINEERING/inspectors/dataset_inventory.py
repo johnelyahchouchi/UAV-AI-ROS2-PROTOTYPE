@@ -1,11 +1,25 @@
 from pathlib import Path
+import sys
 import yaml
 
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import (
+    AMAD5_CLEAN_DATASET_DIR,
+    KAGGLE_DATASET_DIR,
+    ROBOFLOW_MILITARY_DATASET_DIR,
+    ROBOFLOW_TANK_CLEAN_DATASET_DIR,
+)
+
+
 datasets = {
-    "01_kaggle_military_assets": Path(r"C:\Users\UAVlab\Desktop\uav_ai_company\big_datasets\01_kaggle_military_assets\military_object_dataset\data.yaml"),
-    "02_roboflow_military_footage": Path(r"C:\rf_datasets\mfr\data_fixed.yaml"),
-    "03_roboflow_tank_clean": Path(r"C:\rf_datasets\tank_clean\data.yaml"),
-    "04_amad5_aerial": Path(r"C:\rf_datasets\amad5\data_fixed.yaml"),
+    "01_kaggle_military_assets": KAGGLE_DATASET_DIR / "data.yaml",
+    "02_roboflow_military_footage": ROBOFLOW_MILITARY_DATASET_DIR / "data_fixed.yaml",
+    "03_roboflow_tank_clean": ROBOFLOW_TANK_CLEAN_DATASET_DIR / "data.yaml",
+    "04_amad5_aerial": AMAD5_CLEAN_DATASET_DIR / "data_fixed.yaml",
 }
 
 image_exts = [".jpg", ".jpeg", ".png", ".bmp", ".webp"]
@@ -25,7 +39,9 @@ for name, yaml_path in datasets.items():
     with open(yaml_path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
-    root = Path(data["path"])
+    root = Path(data["path"]).expanduser()
+    if not root.is_absolute():
+        root = (yaml_path.parent / root).resolve(strict=False)
     names = data.get("names", [])
 
     print(f"ROOT: {root}")
@@ -37,7 +53,7 @@ for name, yaml_path in datasets.items():
             continue
 
         img_dir = root / data[split_key]
-        label_dir = Path(str(img_dir).replace("images", "labels"))
+        label_dir = img_dir.parent / "labels"
 
         img_count = 0
         label_count = 0

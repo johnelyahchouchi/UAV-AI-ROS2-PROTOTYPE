@@ -1,7 +1,6 @@
-path: C:/uav_datasets_master/01_btr_original_1class
-train: train/images
-val: valid/images
-test: test/images
+train: ../../../datasets/01_btr_original_1class/train/images
+val: ../../../datasets/01_btr_original_1class/valid/images
+test: ../../../datasets/01_btr_original_1class/test/images
 
 nc: 1
 names:

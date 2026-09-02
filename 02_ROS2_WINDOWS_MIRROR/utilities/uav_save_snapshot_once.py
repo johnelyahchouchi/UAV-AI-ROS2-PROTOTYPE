@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import sys
 import time
 from pathlib import Path
 
@@ -12,6 +13,13 @@ from std_msgs.msg import String
 from cv_bridge import CvBridge
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import OUTPUTS_DIR
+
+
 class UAVSaveSnapshotOnce(Node):
     def __init__(self):
         super().__init__("uav_save_snapshot_once")
@@ -20,8 +28,8 @@ class UAVSaveSnapshotOnce(Node):
         self.frame = None
         self.detections = []
 
-        self.output_dir = Path.home() / "uav_demo_outputs"
-        self.output_dir.mkdir(exist_ok=True)
+        self.output_dir = OUTPUTS_DIR / "ros2_dashboards"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.create_subscription(Image, "/uav_1/camera/image_raw", self.image_cb, 10)
         self.create_subscription(String, "/uav_1/coco_detections", self.det_cb, 10)

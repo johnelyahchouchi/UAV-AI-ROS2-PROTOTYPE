@@ -3,6 +3,7 @@
 
 import csv
 import json
+import sys
 import time
 from collections import Counter, deque
 from datetime import datetime
@@ -14,6 +15,13 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import OUTPUTS_DIR
 
 
 WHITE = (255, 255, 255)
@@ -464,7 +472,7 @@ class UAVThreatAnalyticsDashboardV2(Node):
         self.last_second_count = 0
         self.last_rate_time = time.time()
 
-        self.output_dir = Path.home() / "uav_demo_outputs"
+        self.output_dir = OUTPUTS_DIR / "ros2_dashboards"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.positions_csv_path = self.output_dir / "live_target_positions_threat_v2.csv"
@@ -754,7 +762,7 @@ class UAVThreatAnalyticsDashboardV2(Node):
 
         cv2.putText(
             canvas,
-            "Threat-aware position data saved to ~/uav_demo_outputs/live_target_positions_threat_v2.csv",
+            f"Threat-aware position data saved to {self.positions_csv_path}",
             (25, 870),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.48,

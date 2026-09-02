@@ -1,10 +1,17 @@
 from pathlib import Path
 import shutil
+import sys
 import cv2
 import numpy as np
 
 
-DATASET_DIR = Path(r"C:\uav_datasets_master\07_tank_platform_recognition")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import TANK_RECOGNITION_DATASET_DIR
+
+DATASET_DIR = TANK_RECOGNITION_DATASET_DIR
 RAW_DIR = DATASET_DIR / "00_raw_by_class"
 REVIEW_DIR = RAW_DIR / "99_uncertain_review"
 SKIPPED_DIR = RAW_DIR / "98_skipped_review_later"

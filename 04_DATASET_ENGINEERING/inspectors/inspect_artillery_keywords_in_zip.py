@@ -1,12 +1,22 @@
 import ast
 import re
+import sys
 import zipfile
 from collections import defaultdict
 from pathlib import Path
 
 
-ZIP_PATH = Path(
-    r"C:\uav_datasets_master\07_tank_platform_recognition\03_downloaded_roboflow_zips\military_vehicles_126_classes_yolov8.zip"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import TANK_RECOGNITION_DATASET_DIR, configured_path
+
+ZIP_PATH = configured_path(
+    "UAV_ARTILLERY_ZIP_PATH",
+    TANK_RECOGNITION_DATASET_DIR
+    / "03_downloaded_roboflow_zips"
+    / "military_vehicles_126_classes_yolov8.zip",
 )
 
 KEYWORDS = [

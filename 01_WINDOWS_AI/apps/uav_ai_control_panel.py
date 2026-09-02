@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, simpledialog, simpledialog
+from tkinter import ttk, filedialog, messagebox, simpledialog
 import subprocess
 import threading
 import queue
@@ -7,28 +7,50 @@ import sys
 from pathlib import Path
 
 
-PROJECT_DIR = Path(r"C:\Users\UAVlab\Desktop\uav_ai_company")
-SENDER_SCRIPT = PROJECT_DIR / "win_yolo_tcp_sender.py"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import (
+    BASE_YOLO_MODEL,
+    BTR_MODEL,
+    MODELS_DIR,
+    OUTPUTS_DIR,
+    TEST_MEDIA_DIR,
+    configured_path,
+)
+
+
+SENDER_SCRIPT = PROJECT_ROOT / "01_WINDOWS_AI" / "apps" / "win_yolo_tcp_sender_botsort_threat.py"
+DEFAULT_VIDEO = configured_path(
+    "UAV_DEFAULT_VIDEO_PATH", TEST_MEDIA_DIR / "videos" / "vehicles.mp4"
+)
+TANK_VIDEO = configured_path(
+    "UAV_TANK_VIDEO_PATH", TEST_MEDIA_DIR / "videos" / "tank_real_test.mp4"
+)
+BTR_DEMO_VIDEO = configured_path(
+    "UAV_BTR_DEMO_VIDEO_PATH", OUTPUTS_DIR / "windows_ai" / "btr_demo.mp4"
+)
 
 
 MODES = {
     "General surveillance - vehicles.mp4": {
-        "model": "yolov8n.pt",
-        "source": "vehicles.mp4",
+        "model": str(BASE_YOLO_MODEL),
+        "source": str(DEFAULT_VIDEO),
         "conf": "0.25"
     },
     "BTR armored - real tank video": {
-        "model": "btr_best_v2.pt",
-        "source": "tank_real_test.mp4",
+        "model": str(BTR_MODEL),
+        "source": str(TANK_VIDEO),
         "conf": "0.4"
     },
     "BTR armored - demo video": {
-        "model": "btr_best_v2.pt",
-        "source": "btr_demo.mp4",
+        "model": str(BTR_MODEL),
+        "source": str(BTR_DEMO_VIDEO),
         "conf": "0.4"
     },
     "Live stream - general surveillance": {
-        "model": "yolov8n.pt",
+        "model": str(BASE_YOLO_MODEL),
         "source": "",
         "conf": "0.25"
     },
@@ -51,8 +73,8 @@ class UAVAIControlPanel:
 
         self.vm_ip = tk.StringVar(value="192.168.153.128")
         self.mode = tk.StringVar(value="BTR armored - real tank video")
-        self.model = tk.StringVar(value="btr_best_v2.pt")
-        self.source = tk.StringVar(value="tank_real_test.mp4")
+        self.model = tk.StringVar(value=str(BTR_MODEL))
+        self.source = tk.StringVar(value=str(TANK_VIDEO))
         self.conf = tk.StringVar(value="0.15")
         self.imgsz = tk.StringVar(value="640")
         self.stride = tk.StringVar(value="1")
@@ -164,8 +186,8 @@ class UAVAIControlPanel:
         status_box.grid(row=13, column=0, sticky="we", pady=20)
 
         reminder = (
-            "1. Ubuntu: ~/start_bridge.sh\n"
-            "2. Ubuntu: ~/start_dashboard.sh\n"
+            "1. Ubuntu: start the configured ROS 2 bridge\n"
+            "2. Ubuntu: start the configured dashboard\n"
             "3. Windows: Start AI sender here"
         )
         tk.Label(status_box, text=reminder, justify="left").pack(anchor="w")
@@ -187,7 +209,7 @@ class UAVAIControlPanel:
 
     def browse_model(self):
         file_path = filedialog.askopenfilename(
-            initialdir=str(PROJECT_DIR),
+            initialdir=str(MODELS_DIR),
             title="Select YOLO model",
             filetypes=[("YOLO model", "*.pt"), ("All files", "*.*")]
         )
@@ -196,7 +218,7 @@ class UAVAIControlPanel:
 
     def browse_source(self):
         file_path = filedialog.askopenfilename(
-            initialdir=str(PROJECT_DIR),
+            initialdir=str(TEST_MEDIA_DIR),
             title="Select video/source",
             filetypes=[("Video files", "*.mp4 *.avi *.mov *.mkv"), ("All files", "*.*")]
         )
@@ -249,7 +271,7 @@ class UAVAIControlPanel:
         try:
             self.process = subprocess.Popen(
                 cmd,
-                cwd=str(PROJECT_DIR),
+                cwd=str(PROJECT_ROOT),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,

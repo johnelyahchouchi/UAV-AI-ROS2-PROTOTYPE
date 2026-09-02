@@ -1,7 +1,6 @@
-path: C:/Users/UAVlab/Desktop/uav_ai_company/big_datasets/01_kaggle_military_assets/military_object_dataset
-train: train/images
-val: val/images
-test: test/images
+train: ../../../../datasets/01_detection/military_kaggle_v1/train/images
+val: ../../../../datasets/01_detection/military_kaggle_v1/val/images
+test: ../../../../datasets/01_detection/military_kaggle_v1/test/images
 
 nc: 12
 

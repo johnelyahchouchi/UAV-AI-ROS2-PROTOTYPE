@@ -9,6 +9,19 @@ import torch
 from ultralytics import YOLO
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import (
+    ACTIVE_DETECTOR_MODEL,
+    MODELS_DIR,
+    OUTPUTS_DIR,
+    TEST_MEDIA_DIR,
+    configured_path,
+)
+
+
 def get_class_name(names, class_id):
     if isinstance(names, dict):
         return str(names.get(int(class_id), f"class_{class_id}"))
@@ -101,50 +114,50 @@ def main():
     parser.add_argument("--video", default="")
     args = parser.parse_args()
 
-    project_root = Path(__file__).resolve().parents[3]
-
     video_path = (
-        Path(args.video)
+        Path(args.video).expanduser()
         if args.video
-        else project_root / "06_TEST_MEDIA" / "videos" / "vehicles.mp4"
+        else configured_path(
+            "UAV_DEFAULT_VIDEO_PATH", TEST_MEDIA_DIR / "videos" / "vehicles.mp4"
+        )
     )
+    if not video_path.is_absolute():
+        video_path = PROJECT_ROOT / video_path
+    if not video_path.is_file():
+        raise FileNotFoundError(
+            f"Test video not found: {video_path}. Set UAV_DEFAULT_VIDEO_PATH or "
+            "place the video in the configured test-media directory."
+        )
 
     output_dir = (
-        project_root
-        / "08_OUTPUTS"
+        OUTPUTS_DIR
         / "model_tests"
         / "offline_active_models_smoke_test"
     )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     model_paths = {
-        "military_detector": (
-            project_root
-            / "03_MODELS"
-            / "active"
-            / "detector"
-            / "military_kaggle_v1.pt"
-        ),
-        "tank_classifier": (
-            project_root
-            / "03_MODELS"
+        "military_detector": ACTIVE_DETECTOR_MODEL,
+        "tank_classifier": configured_path(
+            "UAV_TANK_CLASSIFIER_PATH",
+            MODELS_DIR
             / "active"
             / "tank_classifier"
-            / "tank_type_classifier_v3_only_tanks.pt"
+            / "tank_type_classifier_v3_only_tanks.pt",
         ),
-        "armored_classifier": (
-            project_root
-            / "03_MODELS"
+        "armored_classifier": configured_path(
+            "UAV_ARMORED_CLASSIFIER_PATH",
+            MODELS_DIR
             / "active"
             / "armored_classifier"
-            / "armored_vehicle_classifier_v1.pt"
+            / "armored_vehicle_classifier_v1.pt",
         ),
-        "artillery_classifier": (
-            project_root
-            / "03_MODELS"
+        "artillery_classifier": configured_path(
+            "UAV_ARTILLERY_CLASSIFIER_PATH",
+            MODELS_DIR
             / "active"
             / "artillery_classifier"
-            / "artillery_launcher_classifier_v1.pt"
+            / "artillery_launcher_classifier_v1.pt",
         ),
     }
 

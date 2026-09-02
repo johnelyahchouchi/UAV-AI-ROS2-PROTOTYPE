@@ -1,5 +1,5 @@
 ﻿Selected active sender:
-C:\Users\UAVlab\Desktop\uav_ai_company\win_yolo_tcp_sender_botsort_threat.py
+01_WINDOWS_AI/apps/win_yolo_tcp_sender_botsort_threat.py
 
 Selected on:
 2026-07-15 14:51:05

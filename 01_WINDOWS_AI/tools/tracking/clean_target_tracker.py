@@ -3,7 +3,26 @@ import cv2
 from pathlib import Path
 import csv
 import argparse
+import sys
 import time
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import (
+    ACTIVE_DETECTOR_MODEL,
+    OUTPUTS_DIR,
+    TEST_MEDIA_DIR,
+    configured_path,
+)
+
+
+DEFAULT_TANK_VIDEO = configured_path(
+    "UAV_TANK_VIDEO_PATH",
+    TEST_MEDIA_DIR / "videos" / "1minutesVIEWdroneVIDEOTANKS.mp4",
+)
 
 
 # ============================================================
@@ -90,8 +109,11 @@ def parse_allowed_classes(text):
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--model", default="military_kaggle_v1.pt")
-    parser.add_argument("--source", default="1minutesVIEWdroneVIDEOTANKS.mp4")
+    parser.add_argument("--model", default=str(ACTIVE_DETECTOR_MODEL))
+    parser.add_argument(
+        "--source",
+        default=str(DEFAULT_TANK_VIDEO),
+    )
     parser.add_argument("--conf", type=float, default=0.20)
     parser.add_argument("--imgsz", type=int, default=960)
     parser.add_argument("--tracker", default="botsort.yaml")
@@ -116,8 +138,19 @@ def main():
 
     allowed_classes = parse_allowed_classes(args.allowed_classes)
 
-    source_path = Path(args.source)
-    out_dir = Path("tracking_tests") / f"clean_targets_{source_path.stem}"
+    source_path = Path(args.source).expanduser()
+    if not source_path.is_absolute():
+        source_path = PROJECT_ROOT / source_path
+    model_path = Path(args.model).expanduser()
+    if not model_path.is_absolute():
+        model_path = PROJECT_ROOT / model_path
+    if not source_path.is_file():
+        raise FileNotFoundError(f"Video source not found: {source_path}")
+    if not model_path.is_file():
+        raise FileNotFoundError(
+            f"Model not found: {model_path}. Set UAV_MODEL_PATH or pass --model."
+        )
+    out_dir = OUTPUTS_DIR / "tracking_tests" / f"clean_targets_{source_path.stem}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     out_video = out_dir / "clean_target_tracking.mp4"
@@ -126,17 +159,17 @@ def main():
     print("=" * 70)
     print("CLEAN TARGET TRACKER")
     print("=" * 70)
-    print(f"Model:   {args.model}")
-    print(f"Source:  {args.source}")
+    print(f"Model:   {model_path}")
+    print(f"Source:  {source_path}")
     print(f"Tracker: {args.tracker}")
     print(f"Output:  {out_video}")
     print(f"CSV:     {out_csv}")
     print(f"Allowed classes: {sorted(list(allowed_classes))}")
     print("=" * 70)
 
-    model = YOLO(args.model)
+    model = YOLO(str(model_path))
 
-    cap = cv2.VideoCapture(args.source)
+    cap = cv2.VideoCapture(str(source_path))
     fps = cap.get(cv2.CAP_PROP_FPS)
     if fps <= 0:
         fps = 30.0
@@ -255,7 +288,7 @@ def main():
     frame_idx = 0
 
     results = model.track(
-        source=args.source,
+        source=str(source_path),
         conf=args.conf,
         imgsz=args.imgsz,
         tracker=args.tracker,

@@ -46,19 +46,28 @@ def repository_root() -> Path:
 
 def default_model_path(
     environ: Mapping[str, str] | None = None,
-    home: Path | None = None,
 ) -> Path:
-    """Resolve UAV_MODEL_PATH or the USERPROFILE-based external default."""
+    """Resolve UAV_MODEL_PATH or the repository model-layout default."""
     values = os.environ if environ is None else environ
     configured = values.get("UAV_MODEL_PATH", "").strip()
     if configured:
-        return Path(os.path.expandvars(configured)).expanduser()
+        candidate = Path(os.path.expandvars(configured)).expanduser()
+        if not candidate.is_absolute():
+            candidate = repository_root() / candidate
+        return candidate.resolve(strict=False)
 
-    if home is None:
-        user_profile = values.get("USERPROFILE", "").strip()
-        home = Path(user_profile) if user_profile else Path.home()
+    configured_models = values.get("UAV_MODELS_DIR", "").strip()
+    models_dir = (
+        Path(os.path.expandvars(configured_models)).expanduser()
+        if configured_models
+        else repository_root() / "03_MODELS"
+    )
+    if not models_dir.is_absolute():
+        models_dir = repository_root() / models_dir
 
-    return home / "Desktop" / "UAV_MODELS" / "military_kaggle_v1.pt"
+    return (
+        models_dir / "active" / "detector" / "military_kaggle_v1.pt"
+    ).resolve(strict=False)
 
 
 def model_location_warning(model_path: Path, repo_root: Path | None = None) -> str | None:

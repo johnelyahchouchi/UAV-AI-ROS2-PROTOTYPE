@@ -2,6 +2,14 @@
 import torch
 from pathlib import Path
 from multiprocessing import freeze_support
+import sys
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import BASE_YOLO_MODEL, BTR_DATASET_DIR, configured_path
 
 
 def main():
@@ -17,22 +25,31 @@ def main():
     else:
         print("WARNING: CUDA not available. Training will be very slow.")
 
-    PROJECT_DIR = Path(r"C:\Users\UAVlab\Desktop\uav_ai_company")
-    DATA_YAML = PROJECT_DIR / "BTR.v1i.yolov8" / "data.yaml"
+    data_yaml = BTR_DATASET_DIR / "data.yaml"
+    training_output_dir = configured_path(
+        "UAV_TRAINING_OUTPUT_DIR", PROJECT_ROOT / "05_TRAINING" / "detection_runs"
+    )
+    training_output_dir.mkdir(parents=True, exist_ok=True)
 
-    if not DATA_YAML.exists():
-        raise FileNotFoundError(f"Could not find data.yaml here: {DATA_YAML}")
+    if not data_yaml.is_file():
+        raise FileNotFoundError(
+            f"BTR data.yaml not found: {data_yaml}. Set UAV_BTR_DATASET_DIR."
+        )
+    if not BASE_YOLO_MODEL.is_file():
+        raise FileNotFoundError(
+            f"Base model not found: {BASE_YOLO_MODEL}. Set UAV_BASE_MODEL_PATH."
+        )
 
-    model = YOLO("yolov8n.pt")
+    model = YOLO(str(BASE_YOLO_MODEL))
 
     results = model.train(
-        data=str(DATA_YAML),
+        data=str(data_yaml),
         epochs=10,
         imgsz=640,
         batch=4,
         device=0,
         workers=0,
-        project=str(PROJECT_DIR / "training_runs"),
+        project=str(training_output_dir),
         name="btr_yolov8n_local_test",
         exist_ok=True,
         patience=5,
@@ -43,7 +60,7 @@ def main():
     print("====================================")
     print("TRAINING FINISHED")
     print("Best model saved here:")
-    print(PROJECT_DIR / "training_runs" / "btr_yolov8n_local_test" / "weights" / "best.pt")
+    print(training_output_dir / "btr_yolov8n_local_test" / "weights" / "best.pt")
     print("====================================")
 
 

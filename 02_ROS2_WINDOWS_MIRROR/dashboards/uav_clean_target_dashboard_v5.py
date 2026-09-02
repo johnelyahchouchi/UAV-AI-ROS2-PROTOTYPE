@@ -5,6 +5,7 @@
 import csv
 import json
 import math
+import sys
 import time
 from collections import Counter, deque
 from datetime import datetime
@@ -18,6 +19,13 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import OUTPUTS_DIR
 
 
 TARGET_COLORS = [
@@ -309,7 +317,7 @@ class UAVCleanTargetDashboardV5(Node):
         self.last_render_time = time.time()
         self.fps = 0.0
 
-        self.output_dir = Path.home() / "uav_demo_outputs"
+        self.output_dir = OUTPUTS_DIR / "ros2_dashboards"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.csv_path = self.output_dir / "uav_target_extraction_v5_threat.csv"

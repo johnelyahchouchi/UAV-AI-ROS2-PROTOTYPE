@@ -1,8 +1,17 @@
 from pathlib import Path
 import shutil
+import sys
 
-SRC = Path(r"C:\rf_datasets\tank")
-DST = Path(r"C:\rf_datasets\tank_clean")
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import ROBOFLOW_TANK_CLEAN_DATASET_DIR, ROBOFLOW_TANK_DATASET_DIR
+
+
+SRC = ROBOFLOW_TANK_DATASET_DIR
+DST = ROBOFLOW_TANK_CLEAN_DATASET_DIR
 
 splits = ["train", "valid", "test"]
 image_exts = [".jpg", ".jpeg", ".png", ".bmp", ".webp"]
@@ -43,7 +52,7 @@ for split in splits:
             if cleaned_lines:
                 f.write("\n".join(cleaned_lines) + "\n")
 
-data_yaml = """path: C:/rf_datasets/tank_clean
+data_yaml = f"""path: {DST.as_posix()}
 train: train/images
 val: valid/images
 test: test/images

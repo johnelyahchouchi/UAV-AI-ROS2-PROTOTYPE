@@ -1,7 +1,6 @@
-path: C:/uav_datasets_master/02_kaggle_military_12class
-train: train/images
-val: val/images
-test: test/images
+train: ../../../datasets/02_kaggle_military_12class/train/images
+val: ../../../datasets/02_kaggle_military_12class/val/images
+test: ../../../datasets/02_kaggle_military_12class/test/images
 
 nc: 12
 names:

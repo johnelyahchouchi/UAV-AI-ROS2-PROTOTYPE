@@ -10,23 +10,29 @@ from uav_model_dashboard.configuration import (
     ProcessingSettings,
     default_model_path,
     model_location_warning,
+    repository_root,
     validate_model_path,
     validate_video_path,
 )
 from uav_model_dashboard.errors import DashboardError
 
 
-def test_default_model_path_uses_environment_override() -> None:
-    result = default_model_path(
-        {"UAV_MODEL_PATH": r"D:\models\custom.pt", "USERPROFILE": r"C:\Someone"}
+def test_default_model_path_uses_environment_override(tmp_path: Path) -> None:
+    configured = tmp_path / "models" / "custom.pt"
+    result = default_model_path({"UAV_MODEL_PATH": str(configured)})
+    assert result == configured.resolve(strict=False)
+
+
+def test_default_model_path_is_repository_anchored() -> None:
+    result = default_model_path({})
+    expected = (
+        repository_root()
+        / "03_MODELS"
+        / "active"
+        / "detector"
+        / "military_kaggle_v1.pt"
     )
-    assert result == Path(r"D:\models\custom.pt")
-
-
-def test_default_model_path_uses_userprofile_not_hardcoded_username() -> None:
-    result = default_model_path({"USERPROFILE": r"D:\Profile"})
-    assert result == Path(r"D:\Profile\Desktop\UAV_MODELS\military_kaggle_v1.pt")
-    assert "User" not in str(result)
+    assert result == expected.resolve(strict=False)
 
 
 def test_processing_settings_defaults_and_valid_values() -> None:

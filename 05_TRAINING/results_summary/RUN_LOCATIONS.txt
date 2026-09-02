@@ -1,6 +1,7 @@
 ﻿Training result folders were intentionally NOT copied because they may be very large.
 
-Existing locations:
-C:\Users\UAVlab\Desktop\uav_ai_company\runs
-C:\Users\UAVlab\Desktop\uav_ai_company\training_runs
-C:\Users\UAVlab\Desktop\uav_ai_company\runs\detect\training_runs
+Portable runtime location:
+05_TRAINING/detection_runs
+
+Override:
+UAV_TRAINING_OUTPUT_DIR

@@ -1,11 +1,13 @@
 $VM_IP = "192.168.153.128"
 
-cd "$env:USERPROFILE\Desktop\uav_ai_company"
+. (Join-Path $PSScriptRoot "portable_paths.ps1")
 
-python win_yolo_tcp_sender.py `
+$Source = Join-Path $TestMediaDirectory "videos\vehicles.mp4"
+
+& $PythonExecutable $SenderScript `
   --target $VM_IP `
-  --source vehicles.mp4 `
-  --model yolov8n.pt `
+  --source $Source `
+  --model $BaseYoloModel `
   --conf 0.25 `
   --imgsz 640 `
   --stride 2 `

@@ -1,6 +1,6 @@
 $VM_IP = "192.168.153.128"
 
-cd "$env:USERPROFILE\Desktop\uav_ai_company"
+. (Join-Path $PSScriptRoot "portable_paths.ps1")
 
 Write-Host ""
 Write-Host "======================================"
@@ -15,7 +15,7 @@ Write-Host ""
 $choice = Read-Host "Choose mode"
 
 if ($choice -eq "1") {
-    $SOURCE = "vehicles.mp4"
+    $SOURCE = Join-Path $TestMediaDirectory "videos\vehicles.mp4"
 }
 elseif ($choice -eq "2") {
     $SOURCE = Read-Host "Paste live stream URL"
@@ -25,13 +25,13 @@ elseif ($choice -eq "3") {
 }
 else {
     Write-Host "Invalid choice. Using vehicles.mp4"
-    $SOURCE = "vehicles.mp4"
+    $SOURCE = Join-Path $TestMediaDirectory "videos\vehicles.mp4"
 }
 
-python win_yolo_tcp_sender.py `
+& $PythonExecutable $SenderScript `
   --target $VM_IP `
   --source $SOURCE `
-  --model yolov8n.pt `
+  --model $BaseYoloModel `
   --conf 0.25 `
   --imgsz 640 `
   --stride 2 `

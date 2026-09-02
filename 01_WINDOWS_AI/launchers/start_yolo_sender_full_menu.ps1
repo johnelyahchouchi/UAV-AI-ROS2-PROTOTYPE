@@ -1,6 +1,6 @@
 $VM_IP = "192.168.153.128"
 
-cd "$env:USERPROFILE\Desktop\uav_ai_company"
+. (Join-Path $PSScriptRoot "portable_paths.ps1")
 
 Write-Host ""
 Write-Host "======================================"
@@ -17,34 +17,34 @@ Write-Host ""
 $choice = Read-Host "Choose mode"
 
 if ($choice -eq "1") {
-    $MODEL = "yolov8n.pt"
-    $SOURCE = "vehicles.mp4"
+    $MODEL = $BaseYoloModel
+    $SOURCE = Join-Path $TestMediaDirectory "videos\vehicles.mp4"
     $CONF = "0.25"
 }
 elseif ($choice -eq "2") {
-    $MODEL = "yolov8n.pt"
+    $MODEL = $BaseYoloModel
     $SOURCE = Read-Host "Paste live stream URL"
     $CONF = "0.25"
 }
 elseif ($choice -eq "3") {
-    $MODEL = "btr_best.pt"
-    $SOURCE = "btr_demo.mp4"
+    $MODEL = $BtrModel
+    $SOURCE = Resolve-UavPath "UAV_BTR_DEMO_VIDEO_PATH" "outputs\windows_ai\btr_demo.mp4"
     $CONF = "0.25"
 }
 elseif ($choice -eq "4") {
-    $MODEL = "btr_best.pt"
+    $MODEL = $BtrModel
     $SOURCE = Read-Host "Paste BTR video/image/source path"
     $CONF = "0.25"
 }
 elseif ($choice -eq "5") {
-    $MODEL = "yolov8n.pt"
+    $MODEL = $BaseYoloModel
     $SOURCE = "0"
     $CONF = "0.25"
 }
 else {
     Write-Host "Invalid choice. Using COCO + vehicles.mp4"
-    $MODEL = "yolov8n.pt"
-    $SOURCE = "vehicles.mp4"
+    $MODEL = $BaseYoloModel
+    $SOURCE = Join-Path $TestMediaDirectory "videos\vehicles.mp4"
     $CONF = "0.25"
 }
 
@@ -55,7 +55,7 @@ Write-Host "Source: $SOURCE"
 Write-Host "Target VM: $VM_IP"
 Write-Host ""
 
-python win_yolo_tcp_sender.py `
+& $PythonExecutable $SenderScript `
   --target $VM_IP `
   --source $SOURCE `
   --model $MODEL `

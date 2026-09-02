@@ -1,5 +1,6 @@
 import csv
 import hashlib
+import sys
 import zipfile
 from pathlib import Path
 
@@ -7,10 +8,16 @@ import cv2
 import yaml
 
 
-DATASET_DIR = Path(r"C:\uav_datasets_master\07_tank_platform_recognition")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import DATASET_EXTRACT_DIR, TANK_RECOGNITION_DATASET_DIR
+
+DATASET_DIR = TANK_RECOGNITION_DATASET_DIR
 
 ZIP_DIR = DATASET_DIR / "03_downloaded_roboflow_zips"
-EXTRACT_DIR = Path(r"C:\rfx")
+EXTRACT_DIR = DATASET_EXTRACT_DIR
 RAW_DIR = DATASET_DIR / "00_raw_by_class"
 
 LOG_PATH = DATASET_DIR / "roboflow_detection_import_log.csv"

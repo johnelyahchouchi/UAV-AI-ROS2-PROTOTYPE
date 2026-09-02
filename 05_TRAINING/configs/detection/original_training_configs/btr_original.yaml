@@ -1,6 +1,6 @@
-train: ../train/images
-val: ../valid/images
-test: ../test/images
+train: ../../../../datasets/01_detection/BTR_v1/train/images
+val: ../../../../datasets/01_detection/BTR_v1/valid/images
+test: ../../../../datasets/01_detection/BTR_v1/test/images
 
 nc: 1
 names: ['BTR']

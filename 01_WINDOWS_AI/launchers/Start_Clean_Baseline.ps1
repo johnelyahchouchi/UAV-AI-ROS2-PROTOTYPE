@@ -18,24 +18,25 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+. (Join-Path $PSScriptRoot "portable_paths.ps1")
 
-$Sender = Join-Path $ProjectRoot `
-    "01_WINDOWS_AI\apps\win_yolo_tcp_sender_botsort_threat.py"
-
-$Model = Join-Path $ProjectRoot `
-    "03_MODELS\active\detector\military_kaggle_v1.pt"
-
-$VideoFolder = Join-Path $ProjectRoot `
-    "06_TEST_MEDIA\videos"
+$Sender = $SenderScript
+$Model = $ActiveDetectorModel
+$VideoFolder = Join-Path $TestMediaDirectory "videos"
 
 if ([string]::IsNullOrWhiteSpace($Source)) {
-    $preferredVideo = Join-Path $VideoFolder "vehicles.mp4"
+    $preferredVideo = Resolve-UavPath `
+        "UAV_DEFAULT_VIDEO_PATH" `
+        "06_TEST_MEDIA\videos\vehicles.mp4"
 
     if (Test-Path -LiteralPath $preferredVideo) {
         $Source = $preferredVideo
     }
     else {
+        if (-not (Test-Path -LiteralPath $VideoFolder -PathType Container)) {
+            throw "Test-media folder not found: $VideoFolder. Set UAV_TEST_MEDIA_DIR or pass -Source."
+        }
+
         $firstVideo = Get-ChildItem $VideoFolder `
             -File `
             -Include *.mp4, *.avi, *.mov |
@@ -48,20 +49,21 @@ if ([string]::IsNullOrWhiteSpace($Source)) {
         $Source = $firstVideo.FullName
     }
 }
+elseif (-not [IO.Path]::IsPathRooted($Source)) {
+    $Source = [IO.Path]::GetFullPath((Join-Path $ProjectRoot $Source))
+}
 
 if (-not (Test-Path -LiteralPath $Sender)) {
     throw "Sender not found: $Sender"
 }
 
 if (-not (Test-Path -LiteralPath $Model)) {
-    throw "Detector model not found: $Model"
+    throw "Detector model not found: $Model. Set UAV_MODEL_PATH or place the model in the expected models directory."
 }
 
 if (-not (Test-Path -LiteralPath $Source)) {
-    throw "Video source not found: $Source"
+    throw "Video source not found: $Source. Set UAV_DEFAULT_VIDEO_PATH, set UAV_TEST_MEDIA_DIR, or pass -Source."
 }
-
-$Python = Get-Command python -ErrorAction Stop
 
 Write-Host ""
 Write-Host "=== CLEAN UAV AI BASELINE ===" -ForegroundColor Cyan
@@ -72,7 +74,7 @@ Write-Host "Target : $Target`:$Port"
 Write-Host "Tracker: botsort.yaml"
 Write-Host ""
 
-& $Python.Source $Sender `
+& $PythonExecutable $Sender `
     --target $Target `
     --port $Port `
     --source $Source `

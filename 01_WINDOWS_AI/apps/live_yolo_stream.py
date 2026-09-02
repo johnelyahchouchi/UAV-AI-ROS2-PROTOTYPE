@@ -1,6 +1,15 @@
 import cv2
 import subprocess
+import sys
+from pathlib import Path
 from ultralytics import YOLO
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import BASE_YOLO_MODEL
 
 YOUTUBE_URL = "https://www.youtube.com/@cityofmurfreesboro-traffic7836/live"
 
@@ -17,7 +26,13 @@ if not cap.isOpened():
     print("ERROR: Could not open stream.")
     exit()
 
-model = YOLO("yolov8n.pt")
+if not BASE_YOLO_MODEL.is_file():
+    raise FileNotFoundError(
+        f"Model not found: {BASE_YOLO_MODEL}. Set UAV_BASE_MODEL_PATH or place the "
+        "model in the expected models directory."
+    )
+
+model = YOLO(str(BASE_YOLO_MODEL))
 
 print("Running YOLO live. Press Q to quit.")
 

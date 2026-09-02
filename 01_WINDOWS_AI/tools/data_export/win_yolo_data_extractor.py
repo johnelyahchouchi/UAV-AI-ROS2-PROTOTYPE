@@ -1,10 +1,18 @@
 import argparse
 import csv
 import math
+import sys
 import time
 from pathlib import Path
 
 from ultralytics import YOLO
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from project_paths import ACTIVE_DETECTOR_MODEL, OUTPUTS_DIR
 
 
 MILITARY_KEYWORDS = [
@@ -78,29 +86,48 @@ def threat_level(class_name, confidence):
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--model", default="military_kaggle_v1.pt")
+    parser.add_argument("--model", default=str(ACTIVE_DETECTOR_MODEL))
     parser.add_argument("--source", required=True)
     parser.add_argument("--conf", type=float, default=0.25)
     parser.add_argument("--iou", type=float, default=0.45)
     parser.add_argument("--imgsz", type=int, default=960)
     parser.add_argument("--tracker", default="botsort.yaml")
     parser.add_argument("--military_only", type=int, default=1)
-    parser.add_argument("--output", default="model_data_exports")
+    parser.add_argument("--output", default=str(OUTPUTS_DIR / "model_data_exports"))
 
     args = parser.parse_args()
 
-    output_dir = Path(args.output)
+    output_dir = Path(args.output).expanduser()
+    if not output_dir.is_absolute():
+        output_dir = PROJECT_ROOT / output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    model_path = Path(args.model).expanduser()
+    if not model_path.is_absolute():
+        model_path = PROJECT_ROOT / model_path
+    if not model_path.is_file():
+        raise FileNotFoundError(
+            f"Model not found: {model_path}. Set UAV_MODEL_PATH or pass --model."
+        )
+
+    source = args.source
+    if "://" not in source and not source.isdigit():
+        source_path = Path(source).expanduser()
+        if not source_path.is_absolute():
+            source_path = PROJECT_ROOT / source_path
+        if not source_path.is_file():
+            raise FileNotFoundError(f"Video source not found: {source_path}")
+        source = str(source_path.resolve())
 
     frame_csv = output_dir / "frame_by_frame_detections.csv"
     summary_csv = output_dir / "target_summary.csv"
     mission_csv = output_dir / "mission_report.csv"
 
-    print("[INFO] Loading model:", args.model)
-    model = YOLO(args.model)
+    print("[INFO] Loading model:", model_path)
+    model = YOLO(str(model_path))
 
     print("[INFO] Model classes:", getattr(model, "names", {}))
-    print("[INFO] Source:", args.source)
+    print("[INFO] Source:", source)
     print("[INFO] Output folder:", output_dir)
 
     clean_mapper = CleanIDMapper()
@@ -144,7 +171,7 @@ def main():
         ])
 
         results_stream = model.track(
-            source=args.source,
+            source=source,
             device=0,
             imgsz=args.imgsz,
             conf=args.conf,
@@ -278,9 +305,9 @@ def main():
                     round(pixel_speed, 3),
                     round(direction_deg, 3),
                     "tracked",
-                    args.model,
+                    str(model_path),
                     args.tracker,
-                    args.source,
+                    source,
                 ])
 
             if frame_index % 50 == 0:
@@ -351,8 +378,8 @@ def main():
         writer = csv.writer(f)
 
         writer.writerow(["metric", "value"])
-        writer.writerow(["source_video", args.source])
-        writer.writerow(["model", args.model])
+        writer.writerow(["source_video", source])
+        writer.writerow(["model", str(model_path)])
         writer.writerow(["tracker", args.tracker])
         writer.writerow(["confidence_threshold", args.conf])
         writer.writerow(["image_size", args.imgsz])

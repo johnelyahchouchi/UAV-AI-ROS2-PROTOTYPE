@@ -24,4 +24,7 @@ Contains dataset reports and registries. Raw dataset ZIP files should not be sto
 
 ## Important rule
 
-Large datasets remain in the external dataset master directory. This project folder stores the scripts, mappings, registries, and documentation required to reproduce them.
+Large datasets may remain outside the repository. Set `UAV_DATASETS_ROOT` for the
+shared layout or one of the dataset-specific variables documented in
+`00_PROJECT_GUIDE/PORTABLE_PATHS.md`. Without an override, scripts use the repository's
+`datasets/` layout.
