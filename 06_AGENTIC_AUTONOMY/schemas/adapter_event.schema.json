@@ -1,0 +1,374 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "adapter_event.schema.json",
+  "title": "Canonical Mission-State Adapter Event Stream",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "mission_id", "events"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "mission_id": {"type": "string", "minLength": 1},
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/event"}
+    }
+  },
+  "$defs": {
+    "timestamp": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clock_id", "sec", "nanosec"],
+      "properties": {
+        "clock_id": {"type": "string", "minLength": 1},
+        "sec": {"type": "integer", "minimum": 0},
+        "nanosec": {"type": "integer", "minimum": 0, "maximum": 999999999}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id"],
+      "properties": {
+        "source_id": {"type": "string", "minLength": 1},
+        "source_node": {"type": ["string", "null"]},
+        "topic": {"type": ["string", "null"]},
+        "message_type": {"type": ["string", "null"]},
+        "source_uav_id": {"type": ["string", "null"]},
+        "source_session_id": {"type": ["string", "null"]},
+        "source_timestamp": {"type": ["string", "null"]},
+        "upstream_sequence": {"type": ["integer", "null"], "minimum": 0}
+      }
+    },
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "frame_id"],
+      "properties": {
+        "x": {"type": "number"},
+        "y": {"type": "number"},
+        "z": {"type": ["number", "null"]},
+        "frame_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": {"type": "number"},
+        "y": {"type": "number"}
+      }
+    },
+    "capability": {
+      "enum": [
+        "RECONNAISSANCE",
+        "SURVEILLANCE",
+        "TARGET_TRACKING",
+        "AREA_SEARCH",
+        "COMMUNICATION_RELAY"
+      ]
+    },
+    "priority": {"enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]},
+    "region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "region_type", "vertices", "priority"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "region_type": {
+          "enum": ["SEARCH_AREA", "OBSERVATION_AREA", "EXCLUSION_ZONE", "OPERATING_AREA"]
+        },
+        "vertices": {
+          "type": "array",
+          "minItems": 3,
+          "items": {"$ref": "#/$defs/point"}
+        },
+        "priority": {"$ref": "#/$defs/priority"},
+        "required_capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/capability"}
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "mission_id",
+        "event_id",
+        "sequence",
+        "event_type",
+        "observed_at",
+        "source",
+        "payload"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0"},
+        "mission_id": {"type": "string", "minLength": 1},
+        "event_id": {"type": "string", "minLength": 1},
+        "sequence": {"type": "integer", "minimum": 0},
+        "event_type": {
+          "enum": [
+            "MISSION_CONFIGURED",
+            "REGION_UPDATED",
+            "UAV_CONFIGURED",
+            "UAV_STATE_UPDATED",
+            "TARGET_OBSERVED",
+            "TARGET_STATE_UPDATED",
+            "TASK_CREATED",
+            "TASK_UPDATED",
+            "TASK_LIFECYCLE_CHANGED",
+            "SNAPSHOT_TICK",
+            "SNAPSHOT_REQUESTED"
+          ]
+        },
+        "observed_at": {"$ref": "#/$defs/timestamp"},
+        "source": {"$ref": "#/$defs/source"},
+        "payload": {"type": "object"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"event_type": {"const": "MISSION_CONFIGURED"}}},
+          "then": {"properties": {"payload": {"$ref": "#/$defs/missionConfigured"}}}
+        },
+        {
+          "if": {"properties": {"event_type": {"const": "REGION_UPDATED"}}},
+          "then": {"properties": {"payload": {"$ref": "#/$defs/regionUpdated"}}}
+        },
+        {
+          "if": {"properties": {"event_type": {"const": "UAV_CONFIGURED"}}},
+          "then": {"properties": {"payload": {"$ref": "#/$defs/uavConfigured"}}}
+        },
+        {
+          "if": {"properties": {"event_type": {"const": "UAV_STATE_UPDATED"}}},
+          "then": {"properties": {"payload": {"$ref": "#/$defs/uavStateUpdated"}}}
+        },
+        {
+          "if": {"properties": {"event_type": {"const": "TARGET_OBSERVED"}}},
+          "then": {"properties": {"payload": {"$ref": "#/$defs/targetObserved"}}}
+        },
+        {
+          "if": {"properties": {"event_type": {"const": "TARGET_STATE_UPDATED"}}},
+          "then": {"properties": {"payload": {"$ref": "#/$defs/targetUpdated"}}}
+        },
+        {
+          "if": {"properties": {"event_type": {"const": "TASK_CREATED"}}},
+          "then": {"properties": {"payload": {"$ref": "#/$defs/taskCreated"}}}
+        },
+        {
+          "if": {"properties": {"event_type": {"const": "TASK_UPDATED"}}},
+          "then": {"properties": {"payload": {"$ref": "#/$defs/taskUpdated"}}}
+        },
+        {
+          "if": {"properties": {"event_type": {"const": "TASK_LIFECYCLE_CHANGED"}}},
+          "then": {"properties": {"payload": {"$ref": "#/$defs/taskLifecycle"}}}
+        },
+        {
+          "if": {
+            "properties": {
+              "event_type": {"enum": ["SNAPSHOT_TICK", "SNAPSHOT_REQUESTED"]}
+            }
+          },
+          "then": {"properties": {"payload": {"$ref": "#/$defs/snapshotTrigger"}}}
+        }
+      ]
+    },
+    "missionConfigured": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scenario_id", "regions", "operating_region_id", "exclusion_region_ids"],
+      "properties": {
+        "scenario_id": {"type": "string", "minLength": 1},
+        "regions": {"type": "array", "items": {"$ref": "#/$defs/region"}},
+        "operating_region_id": {"type": ["string", "null"]},
+        "exclusion_region_ids": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "regionUpdated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["region"],
+      "properties": {"region": {"$ref": "#/$defs/region"}}
+    },
+    "uavConfigured": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uav_id", "capabilities", "max_workload", "max_task_distance"],
+      "properties": {
+        "uav_id": {"type": "string", "minLength": 1},
+        "capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/capability"}
+        },
+        "max_workload": {"type": "integer", "minimum": 1},
+        "max_task_distance": {
+          "anyOf": [
+            {"type": "number", "exclusiveMinimum": 0},
+            {"type": "null"}
+          ]
+        }
+      }
+    },
+    "uavStateUpdated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uav_id"],
+      "minProperties": 2,
+      "properties": {
+        "uav_id": {"type": "string", "minLength": 1},
+        "position": {"$ref": "#/$defs/position"},
+        "availability": {
+          "enum": ["AVAILABLE", "BUSY", "UNAVAILABLE", "UNKNOWN", "STALE"]
+        },
+        "battery_percent": {"type": "number"},
+        "link_state": {"enum": ["GOOD", "DEGRADED", "LOST", "UNKNOWN"]},
+        "link_quality": {"type": "number", "minimum": 0, "maximum": 1},
+        "external_workload": {"type": "integer", "minimum": 0},
+        "mission_status": {
+          "enum": ["IDLE", "EXECUTING", "RETURNING", "LANDED", "FAULT", "UNKNOWN"]
+        },
+        "current_target_id": {"type": ["string", "null"]}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"link_state": {"const": "LOST"}},
+            "required": ["link_state"]
+          },
+          "then": {
+            "required": ["link_quality"],
+            "properties": {"link_quality": {"const": 0.0}}
+          }
+        }
+      ]
+    },
+    "targetObserved": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "global_target_id",
+        "source_uav_id",
+        "local_track_id",
+        "class_name",
+        "confidence",
+        "status",
+        "position",
+        "priority",
+        "required_capabilities",
+        "continuity_uav_id"
+      ],
+      "properties": {
+        "global_target_id": {"type": ["string", "null"]},
+        "source_uav_id": {"type": "string", "minLength": 1},
+        "local_track_id": {"type": ["string", "null"]},
+        "class_name": {"type": "string", "minLength": 1},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "status": {"enum": ["UNCONFIRMED", "DETECTED", "TRACKED", "LOST"]},
+        "position": {
+          "anyOf": [{"$ref": "#/$defs/position"}, {"type": "null"}]
+        },
+        "priority": {
+          "anyOf": [{"$ref": "#/$defs/priority"}, {"type": "null"}]
+        },
+        "required_capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/capability"}
+        },
+        "continuity_uav_id": {"type": ["string", "null"]}
+      }
+    },
+    "targetUpdated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target_id", "status"],
+      "properties": {
+        "target_id": {"type": "string", "minLength": 1},
+        "status": {"enum": ["UNCONFIRMED", "DETECTED", "TRACKED", "LOST"]},
+        "position": {"$ref": "#/$defs/position"},
+        "priority": {"$ref": "#/$defs/priority"},
+        "required_capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/capability"}
+        },
+        "continuity_uav_id": {"type": ["string", "null"]}
+      }
+    },
+    "taskCreated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "task_type",
+        "priority",
+        "required_capabilities",
+        "target_id",
+        "region_id",
+        "lifecycle_state",
+        "reason"
+      ],
+      "properties": {
+        "request_id": {"type": "string", "minLength": 1},
+        "task_type": {
+          "enum": [
+            "SEARCH_REGION",
+            "OBSERVE_REGION",
+            "INVESTIGATE_TARGET",
+            "TRACK_TARGET",
+            "RELAY_COMMUNICATIONS"
+          ]
+        },
+        "priority": {"$ref": "#/$defs/priority"},
+        "required_capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/capability"}
+        },
+        "target_id": {"type": ["string", "null"]},
+        "region_id": {"type": ["string", "null"]},
+        "lifecycle_state": {"enum": ["PENDING", "ACTIVE"]},
+        "reason": {"type": ["string", "null"]}
+      }
+    },
+    "taskUpdated": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id"],
+      "minProperties": 2,
+      "properties": {
+        "request_id": {"type": "string", "minLength": 1},
+        "priority": {"$ref": "#/$defs/priority"},
+        "required_capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/capability"}
+        }
+      }
+    },
+    "taskLifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "state"],
+      "properties": {
+        "request_id": {"type": "string", "minLength": 1},
+        "state": {"enum": ["PENDING", "ACTIVE", "COMPLETED", "CANCELLED"]},
+        "reason": {"type": ["string", "null"]}
+      }
+    },
+    "snapshotTrigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reason": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

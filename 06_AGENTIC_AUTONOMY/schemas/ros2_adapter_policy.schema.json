@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ros2_adapter_policy.schema.json",
+  "title": "ROS 2 Mission-State Adapter Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "adapter_policy_version",
+    "planning_frame",
+    "freshness_thresholds_seconds",
+    "battery",
+    "snapshot_trigger",
+    "limits",
+    "ros"
+  ],
+  "properties": {
+    "adapter_policy_version": {"const": "1.0"},
+    "planning_frame": {"type": "string", "minLength": 1},
+    "freshness_thresholds_seconds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["position", "availability", "battery", "link", "workload", "target"],
+      "properties": {
+        "position": {"type": "number", "exclusiveMinimum": 0},
+        "availability": {"type": "number", "exclusiveMinimum": 0},
+        "battery": {"type": "number", "exclusiveMinimum": 0},
+        "link": {"type": "number", "exclusiveMinimum": 0},
+        "workload": {"type": "number", "exclusiveMinimum": 0},
+        "target": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "battery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clamp_tolerance_percent"],
+      "properties": {
+        "clamp_tolerance_percent": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "snapshot_trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "periodic_interval_seconds",
+        "unchanged_heartbeat_seconds",
+        "emit_on_safety_change"
+      ],
+      "properties": {
+        "periodic_interval_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "unchanged_heartbeat_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "emit_on_safety_change": {"type": "boolean"}
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maximum_message_bytes",
+        "maximum_snapshots",
+        "maximum_uavs",
+        "maximum_targets",
+        "maximum_tasks",
+        "maximum_diagnostics"
+      ],
+      "properties": {
+        "maximum_message_bytes": {"type": "integer", "minimum": 1},
+        "maximum_snapshots": {"type": "integer", "minimum": 1},
+        "maximum_uavs": {"type": "integer", "minimum": 1},
+        "maximum_targets": {"type": "integer", "minimum": 1},
+        "maximum_tasks": {"type": "integer", "minimum": 1},
+        "maximum_diagnostics": {"type": "integer", "minimum": 1}
+      }
+    },
+    "ros": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_topic",
+        "legacy_detection_topics",
+        "battery_topics",
+        "pose_topics",
+        "snapshot_topic",
+        "diagnostics_topic",
+        "advisory_topic",
+        "snapshot_service",
+        "invoke_replanner",
+        "output_directory"
+      ],
+      "properties": {
+        "event_topic": {"type": "string", "minLength": 1},
+        "legacy_detection_topics": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/legacyTopic"}
+        },
+        "battery_topics": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/stateTopic"}
+        },
+        "pose_topics": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/stateTopic"}
+        },
+        "snapshot_topic": {"type": "string", "minLength": 1},
+        "diagnostics_topic": {"type": "string", "minLength": 1},
+        "advisory_topic": {"type": "string", "minLength": 1},
+        "snapshot_service": {"type": "string", "minLength": 1},
+        "invoke_replanner": {"type": "boolean"},
+        "output_directory": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "$defs": {
+    "legacyTopic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topic", "uav_id", "source_session_id"],
+      "properties": {
+        "topic": {"type": "string", "minLength": 1},
+        "uav_id": {"type": "string", "minLength": 1},
+        "source_session_id": {"type": ["string", "null"]}
+      }
+    },
+    "stateTopic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topic", "uav_id", "source_id"],
+      "properties": {
+        "topic": {"type": "string", "minLength": 1},
+        "uav_id": {"type": "string", "minLength": 1},
+        "source_id": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

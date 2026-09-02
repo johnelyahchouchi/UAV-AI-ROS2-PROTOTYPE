@@ -1,0 +1,207 @@
+{
+  "schema_version": "1.0",
+  "mission_id": "adapter-link-loss-mission",
+  "events": [
+    {
+      "schema_version": "1.0",
+      "mission_id": "adapter-link-loss-mission",
+      "event_id": "link-001-mission",
+      "sequence": 1,
+      "event_type": "MISSION_CONFIGURED",
+      "observed_at": {"clock_id": "mission", "sec": 0, "nanosec": 0},
+      "source": {"source_id": "offline-demo"},
+      "payload": {
+        "scenario_id": "adapter-link-loss",
+        "regions": [],
+        "operating_region_id": null,
+        "exclusion_region_ids": []
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "mission_id": "adapter-link-loss-mission",
+      "event_id": "link-002-uav-alpha-config",
+      "sequence": 2,
+      "event_type": "UAV_CONFIGURED",
+      "observed_at": {"clock_id": "mission", "sec": 0, "nanosec": 0},
+      "source": {"source_id": "offline-demo"},
+      "payload": {
+        "uav_id": "uav-alpha",
+        "capabilities": ["TARGET_TRACKING"],
+        "max_workload": 2,
+        "max_task_distance": 1500.0
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "mission_id": "adapter-link-loss-mission",
+      "event_id": "link-003-uav-charlie-config",
+      "sequence": 3,
+      "event_type": "UAV_CONFIGURED",
+      "observed_at": {"clock_id": "mission", "sec": 0, "nanosec": 0},
+      "source": {"source_id": "offline-demo"},
+      "payload": {
+        "uav_id": "uav-charlie",
+        "capabilities": ["TARGET_TRACKING"],
+        "max_workload": 2,
+        "max_task_distance": 1500.0
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "mission_id": "adapter-link-loss-mission",
+      "event_id": "link-004-uav-alpha-state",
+      "sequence": 4,
+      "event_type": "UAV_STATE_UPDATED",
+      "observed_at": {"clock_id": "mission", "sec": 0, "nanosec": 0},
+      "source": {"source_id": "sim-alpha", "source_uav_id": "uav-alpha"},
+      "payload": {
+        "uav_id": "uav-alpha",
+        "position": {"x": 0.0, "y": 0.0, "z": 20.0, "frame_id": "mission_local"},
+        "availability": "AVAILABLE",
+        "battery_percent": 78.0,
+        "link_state": "GOOD",
+        "link_quality": 0.95,
+        "external_workload": 0,
+        "mission_status": "IDLE",
+        "current_target_id": null
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "mission_id": "adapter-link-loss-mission",
+      "event_id": "link-005-uav-charlie-state",
+      "sequence": 5,
+      "event_type": "UAV_STATE_UPDATED",
+      "observed_at": {"clock_id": "mission", "sec": 0, "nanosec": 0},
+      "source": {"source_id": "sim-charlie", "source_uav_id": "uav-charlie"},
+      "payload": {
+        "uav_id": "uav-charlie",
+        "position": {"x": 500.0, "y": 0.0, "z": 20.0, "frame_id": "mission_local"},
+        "availability": "AVAILABLE",
+        "battery_percent": 75.0,
+        "link_state": "GOOD",
+        "link_quality": 0.85,
+        "external_workload": 0,
+        "mission_status": "IDLE",
+        "current_target_id": null
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "mission_id": "adapter-link-loss-mission",
+      "event_id": "link-006-target",
+      "sequence": 6,
+      "event_type": "TARGET_OBSERVED",
+      "observed_at": {"clock_id": "mission", "sec": 0, "nanosec": 0},
+      "source": {
+        "source_id": "sim-detector",
+        "source_uav_id": "uav-alpha",
+        "source_session_id": "session-001"
+      },
+      "payload": {
+        "global_target_id": "target-delta",
+        "source_uav_id": "uav-alpha",
+        "local_track_id": "track-12",
+        "class_name": "vehicle",
+        "confidence": 0.88,
+        "status": "TRACKED",
+        "position": {"x": 100.0, "y": 0.0, "z": 0.0, "frame_id": "mission_local"},
+        "priority": "HIGH",
+        "required_capabilities": ["TARGET_TRACKING"],
+        "continuity_uav_id": "uav-alpha"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "mission_id": "adapter-link-loss-mission",
+      "event_id": "link-007-task",
+      "sequence": 7,
+      "event_type": "TASK_CREATED",
+      "observed_at": {"clock_id": "mission", "sec": 0, "nanosec": 0},
+      "source": {"source_id": "mission-operator"},
+      "payload": {
+        "request_id": "request-track-delta",
+        "task_type": "TRACK_TARGET",
+        "priority": "HIGH",
+        "required_capabilities": [],
+        "target_id": "target-delta",
+        "region_id": null,
+        "lifecycle_state": "ACTIVE",
+        "reason": "Explicit tracking request."
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "mission_id": "adapter-link-loss-mission",
+      "event_id": "link-008-tick",
+      "sequence": 8,
+      "event_type": "SNAPSHOT_TICK",
+      "observed_at": {"clock_id": "mission", "sec": 1, "nanosec": 0},
+      "source": {"source_id": "offline-demo"},
+      "payload": {"reason": "Initial planning snapshot."}
+    },
+    {
+      "schema_version": "1.0",
+      "mission_id": "adapter-link-loss-mission",
+      "event_id": "link-009-loss",
+      "sequence": 9,
+      "event_type": "UAV_STATE_UPDATED",
+      "observed_at": {"clock_id": "mission", "sec": 2, "nanosec": 0},
+      "source": {"source_id": "sim-alpha", "source_uav_id": "uav-alpha"},
+      "payload": {
+        "uav_id": "uav-alpha",
+        "link_state": "LOST",
+        "link_quality": 0.0
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "mission_id": "adapter-link-loss-mission",
+      "event_id": "link-010-uav-charlie-state",
+      "sequence": 10,
+      "event_type": "UAV_STATE_UPDATED",
+      "observed_at": {"clock_id": "mission", "sec": 3, "nanosec": 0},
+      "source": {"source_id": "sim-charlie", "source_uav_id": "uav-charlie"},
+      "payload": {
+        "uav_id": "uav-charlie",
+        "position": {"x": 450.0, "y": 0.0, "z": 20.0, "frame_id": "mission_local"},
+        "availability": "AVAILABLE",
+        "battery_percent": 74.0,
+        "link_state": "GOOD",
+        "link_quality": 0.85,
+        "external_workload": 0,
+        "mission_status": "IDLE"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "mission_id": "adapter-link-loss-mission",
+      "event_id": "link-011-target",
+      "sequence": 11,
+      "event_type": "TARGET_STATE_UPDATED",
+      "observed_at": {"clock_id": "mission", "sec": 3, "nanosec": 0},
+      "source": {
+        "source_id": "sim-detector",
+        "source_uav_id": "uav-charlie",
+        "source_session_id": "session-002"
+      },
+      "payload": {
+        "target_id": "target-delta",
+        "status": "TRACKED",
+        "position": {"x": 110.0, "y": 0.0, "z": 0.0, "frame_id": "mission_local"},
+        "continuity_uav_id": "uav-charlie"
+      }
+    },
+    {
+      "schema_version": "1.0",
+      "mission_id": "adapter-link-loss-mission",
+      "event_id": "link-012-tick",
+      "sequence": 12,
+      "event_type": "SNAPSHOT_TICK",
+      "observed_at": {"clock_id": "mission", "sec": 3, "nanosec": 0},
+      "source": {"source_id": "offline-demo"},
+      "payload": {"reason": "Stale-state projection snapshot."}
+    }
+  ]
+}

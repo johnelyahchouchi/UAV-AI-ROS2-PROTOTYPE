@@ -1,0 +1,134 @@
+{
+  "mission_id": "adapter-basic-mission",
+  "schema_version": "2.0",
+  "snapshots": [
+    {
+      "scenario": {
+        "exclusion_region_ids": [],
+        "mission_requests": [
+          {
+            "id": "request-track-bravo",
+            "priority": "HIGH",
+            "region_id": null,
+            "required_capabilities": [],
+            "target_id": "target-bravo",
+            "task_type": "TRACK_TARGET"
+          }
+        ],
+        "operating_region_id": null,
+        "regions": [],
+        "scenario_id": "adapter-basic",
+        "schema_version": "1.0",
+        "targets": [
+          {
+            "continuity_uav_id": "uav-alpha",
+            "id": "target-bravo",
+            "position": {
+              "x": 300.0,
+              "y": 100.0
+            },
+            "priority": "HIGH",
+            "required_capabilities": [
+              "TARGET_TRACKING"
+            ],
+            "status": "TRACKED"
+          }
+        ],
+        "uavs": [
+          {
+            "battery_percent": 80.0,
+            "capabilities": [
+              "RECONNAISSANCE",
+              "TARGET_TRACKING"
+            ],
+            "current_target_id": null,
+            "current_workload": 0,
+            "id": "uav-alpha",
+            "link_quality": 0.9,
+            "max_task_distance": 1500.0,
+            "max_workload": 2,
+            "position": {
+              "x": 0.0,
+              "y": 0.0
+            },
+            "status": "AVAILABLE"
+          }
+        ]
+      },
+      "sequence": 1,
+      "snapshot_id": "adapter-basic-snapshot-000001",
+      "task_lifecycle": [
+        {
+          "reason": "Explicit operator-approved tracking request.",
+          "request_id": "request-track-bravo",
+          "state": "ACTIVE"
+        }
+      ],
+      "timestamp": "mission:1.000000000"
+    },
+    {
+      "scenario": {
+        "exclusion_region_ids": [],
+        "mission_requests": [
+          {
+            "id": "request-track-bravo",
+            "priority": "HIGH",
+            "region_id": null,
+            "required_capabilities": [],
+            "target_id": "target-bravo",
+            "task_type": "TRACK_TARGET"
+          }
+        ],
+        "operating_region_id": null,
+        "regions": [],
+        "scenario_id": "adapter-basic",
+        "schema_version": "1.0",
+        "targets": [
+          {
+            "continuity_uav_id": "uav-alpha",
+            "id": "target-bravo",
+            "position": {
+              "x": 320.0,
+              "y": 100.0
+            },
+            "priority": "HIGH",
+            "required_capabilities": [
+              "TARGET_TRACKING"
+            ],
+            "status": "TRACKED"
+          }
+        ],
+        "uavs": [
+          {
+            "battery_percent": 80.0,
+            "capabilities": [
+              "RECONNAISSANCE",
+              "TARGET_TRACKING"
+            ],
+            "current_target_id": null,
+            "current_workload": 0,
+            "id": "uav-alpha",
+            "link_quality": 0.9,
+            "max_task_distance": 1500.0,
+            "max_workload": 2,
+            "position": {
+              "x": 20.0,
+              "y": 0.0
+            },
+            "status": "AVAILABLE"
+          }
+        ]
+      },
+      "sequence": 2,
+      "snapshot_id": "adapter-basic-snapshot-000002",
+      "task_lifecycle": [
+        {
+          "reason": "Explicit operator-approved tracking request.",
+          "request_id": "request-track-bravo",
+          "state": "ACTIVE"
+        }
+      ],
+      "timestamp": "mission:2.000000000"
+    }
+  ]
+}

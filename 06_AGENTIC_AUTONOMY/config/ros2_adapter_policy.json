@@ -1,0 +1,46 @@
+{
+  "adapter_policy_version": "1.0",
+  "planning_frame": "mission_local",
+  "freshness_thresholds_seconds": {
+    "position": 2.0,
+    "availability": 2.0,
+    "battery": 5.0,
+    "link": 2.0,
+    "workload": 5.0,
+    "target": 1.5
+  },
+  "battery": {
+    "clamp_tolerance_percent": 0.001
+  },
+  "snapshot_trigger": {
+    "periodic_interval_seconds": 1.0,
+    "unchanged_heartbeat_seconds": 10.0,
+    "emit_on_safety_change": true
+  },
+  "limits": {
+    "maximum_message_bytes": 4000000,
+    "maximum_snapshots": 1000,
+    "maximum_uavs": 64,
+    "maximum_targets": 4096,
+    "maximum_tasks": 4096,
+    "maximum_diagnostics": 10000
+  },
+  "ros": {
+    "event_topic": "/agentic/mission_state/events",
+    "legacy_detection_topics": [
+      {
+        "topic": "/uav_1/coco_detections",
+        "uav_id": "uav_1",
+        "source_session_id": null
+      }
+    ],
+    "battery_topics": [],
+    "pose_topics": [],
+    "snapshot_topic": "/agentic/mission_state/sequence",
+    "diagnostics_topic": "/agentic/mission_state/diagnostics",
+    "advisory_topic": "/agentic/mission_replanning/advisory",
+    "snapshot_service": "/agentic/mission_state/request_snapshot",
+    "invoke_replanner": true,
+    "output_directory": "outputs/ros2_adapter"
+  }
+}
