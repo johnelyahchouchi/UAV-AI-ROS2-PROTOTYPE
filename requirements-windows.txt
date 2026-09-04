@@ -2,7 +2,7 @@
 # project's verified CUDA stack and Ultralytics experiment version.
 -c 01_WINDOWS_AI/model_test_dashboard/constraints-yolo-env.txt
 
-numpy==1.26.4
+numpy==2.5.2
 matplotlib==3.8.4
 mss==10.2.0
 opencv-python==4.10.0.84
