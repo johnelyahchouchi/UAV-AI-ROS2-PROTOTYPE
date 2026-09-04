@@ -1,11 +1,15 @@
 from pathlib import Path
+import os
 import yaml
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATASET_ROOT = Path(os.environ.get("UAV_DATASET_ROOT", PROJECT_ROOT / "04_DATASET_ENGINEERING" / "local_data"))
+
 datasets = {
-    "01_kaggle_military_assets": Path(r"C:\Users\UAVlab\Desktop\uav_ai_company\big_datasets\01_kaggle_military_assets\military_object_dataset\data.yaml"),
-    "02_roboflow_military_footage": Path(r"C:\rf_datasets\mfr\data_fixed.yaml"),
-    "03_roboflow_tank_clean": Path(r"C:\rf_datasets\tank_clean\data.yaml"),
-    "04_amad5_aerial": Path(r"C:\rf_datasets\amad5\data_fixed.yaml"),
+    "01_kaggle_military_assets": DATASET_ROOT / "01_kaggle_military_assets" / "military_object_dataset" / "data.yaml",
+    "02_roboflow_military_footage": DATASET_ROOT / "02_roboflow_military_footage" / "data_fixed.yaml",
+    "03_roboflow_tank_clean": DATASET_ROOT / "03_roboflow_tank_clean" / "data.yaml",
+    "04_amad5_aerial": DATASET_ROOT / "04_amad5_aerial" / "data_fixed.yaml",
 }
 
 image_exts = [".jpg", ".jpeg", ".png", ".bmp", ".webp"]

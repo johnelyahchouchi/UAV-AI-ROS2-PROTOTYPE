@@ -1,0 +1,39 @@
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Secrets and deployment identities (keep outside Git)
+.env
+.env.*
+*.key
+*.p12
+*.pfx
+*.pem
+keystore/
+sros2_keystore/
+
+# Model binaries and generated training artifacts
+*.pt
+*.pth
+*.onnx
+*.engine
+05_TRAINING/local_runs/
+05_TRAINING/**/weights/
+runs/
+training_runs/
+
+# Local datasets, extraction areas, and generated output
+04_DATASET_ENGINEERING/local_data/
+06_TEST_MEDIA/
+08_OUTPUTS/
+model_data_exports/
+tracking_tests/
+
+# Workstation-generated inventories are local-only; commit sanitized summaries instead
+00_PROJECT_GUIDE/ORIGINAL_SOURCE_INVENTORY.csv
+00_PROJECT_GUIDE/*_LOCAL.csv

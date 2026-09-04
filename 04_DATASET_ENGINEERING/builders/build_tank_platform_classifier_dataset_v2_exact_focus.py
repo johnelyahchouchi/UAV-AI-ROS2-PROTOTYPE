@@ -1,9 +1,11 @@
 import random
 import shutil
+import os
 from pathlib import Path
 
 
-DATASET_DIR = Path(r"C:\uav_datasets_master\07_tank_platform_recognition")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATASET_DIR = Path(os.environ.get("UAV_DATASET_ROOT", PROJECT_ROOT / "04_DATASET_ENGINEERING" / "local_data"))
 RAW_DIR = DATASET_DIR / "00_raw_by_class"
 CLS_DIR = DATASET_DIR / "01_classifier_dataset_v2_exact_focus"
 

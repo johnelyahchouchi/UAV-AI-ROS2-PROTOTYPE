@@ -1,16 +1,23 @@
 import csv
 import hashlib
+import os
 import zipfile
 from pathlib import Path
+import sys
 
 import cv2
 import yaml
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-DATASET_DIR = Path(r"C:\uav_datasets_master\07_tank_platform_recognition")
+from uav_security.csv_safe import sanitize_csv_rows
+from uav_security.safe_zip import safe_extract_zip
 
+DATASET_DIR = Path(os.environ.get("UAV_DATASET_ROOT", PROJECT_ROOT / "04_DATASET_ENGINEERING" / "local_data"))
 ZIP_DIR = DATASET_DIR / "03_downloaded_roboflow_zips"
-EXTRACT_DIR = Path(r"C:\rfx")
+EXTRACT_DIR = Path(os.environ.get("UAV_DATASET_EXTRACT_ROOT", DATASET_DIR / "extracted"))
 RAW_DIR = DATASET_DIR / "00_raw_by_class"
 
 LOG_PATH = DATASET_DIR / "roboflow_detection_import_log.csv"
@@ -101,7 +108,7 @@ def normalize_name(name):
 
 
 def file_md5(path):
-    h = hashlib.md5()
+    h = hashlib.md5(usedforsecurity=False)
 
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
@@ -111,7 +118,7 @@ def file_md5(path):
 
 
 def crop_md5(img):
-    return hashlib.md5(img.tobytes()).hexdigest()
+    return hashlib.md5(img.tobytes(), usedforsecurity=False).hexdigest()
 
 
 def get_existing_hashes():
@@ -150,8 +157,7 @@ def unzip_all():
             print(f"[UNZIP] {zip_path.name} -> {out_dir}")
             out_dir.mkdir(parents=True, exist_ok=True)
 
-            with zipfile.ZipFile(zip_path, "r") as z:
-                z.extractall(out_dir)
+            safe_extract_zip(zip_path, out_dir)
 
         extracted_folders.append(out_dir)
 
@@ -445,7 +451,7 @@ def main():
             "target_class",
             "status_or_output",
         ])
-        writer.writerows(rows)
+        writer.writerows(sanitize_csv_rows(rows))
 
     print("\n" + "=" * 70)
     print("IMPORT FINISHED")

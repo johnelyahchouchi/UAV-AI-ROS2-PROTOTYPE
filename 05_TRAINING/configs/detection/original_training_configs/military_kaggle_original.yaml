@@ -1,4 +1,4 @@
-path: C:/Users/UAVlab/Desktop/uav_ai_company/big_datasets/01_kaggle_military_assets/military_object_dataset
+path: <legacy-project-root>/big_datasets/01_kaggle_military_assets/military_object_dataset
 train: train/images
 val: val/images
 test: test/images

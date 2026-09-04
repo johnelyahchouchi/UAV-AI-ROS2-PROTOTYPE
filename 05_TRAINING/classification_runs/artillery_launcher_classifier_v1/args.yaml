@@ -1,7 +1,7 @@
 task: classify
 mode: train
 model: yolov8s-cls.pt
-data: C:\uav_datasets_master\07_tank_platform_recognition\01_artillery_launcher_classifier_dataset_v1
+data: <external-dataset-root>\07_tank_platform_recognition\01_artillery_launcher_classifier_dataset_v1
 epochs: 80
 time: null
 patience: 100
@@ -12,7 +12,7 @@ save_period: -1
 cache: false
 device: '0'
 workers: 8
-project: C:\Users\UAVlab\Desktop\uav_ai_company\runs\classify
+project: <legacy-project-root>\runs\classify
 name: artillery_launcher_classifier_v1
 exist_ok: false
 pretrained: true
@@ -109,4 +109,4 @@ auto_augment: randaugment
 erasing: 0.4
 cfg: null
 tracker: tracktrack.yaml
-save_dir: C:\Users\UAVlab\Desktop\uav_ai_company\runs\classify\artillery_launcher_classifier_v1
+save_dir: <legacy-project-root>\runs\classify\artillery_launcher_classifier_v1

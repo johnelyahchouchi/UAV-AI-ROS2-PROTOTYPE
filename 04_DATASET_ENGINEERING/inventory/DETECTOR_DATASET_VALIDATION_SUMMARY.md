@@ -1,4 +1,4 @@
-﻿# Detector Dataset Validation Summary
+# Detector Dataset Validation Summary
 
 ## AMAD5
 
@@ -6,7 +6,7 @@
 - Validation: 4,268 images and 4,268 labels
 - Test: 2,431 images and 2,431 labels
 - Missing image-label pairs: 0
-- Location: `C:\uav_datasets_master\05_amad5_aerial_military_5class_clean`
+- Location: `<external-dataset-root>\05_amad5_aerial_military_5class_clean`
 
 ## BTR V1
 
@@ -14,7 +14,7 @@
 - Validation: 101 images and 101 labels
 - Test: 50 images and 50 labels
 - Missing image-label pairs: 0
-- Location: `C:\uav_datasets_master\01_detection\BTR_v1`
+- Location: `<external-dataset-root>\01_detection\BTR_v1`
 
 ## Military Kaggle V1
 
@@ -22,7 +22,7 @@
 - Validation: 2,941 images and 2,941 labels
 - Test: 1,396 images and 1,396 labels
 - Missing image-label pairs: 0
-- Location: `C:\uav_datasets_master\01_detection\military_kaggle_v1`
+- Location: `<external-dataset-root>\01_detection\military_kaggle_v1`
 
 ## Result
 

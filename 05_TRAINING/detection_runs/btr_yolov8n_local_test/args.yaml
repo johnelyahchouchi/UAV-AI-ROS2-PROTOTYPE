@@ -1,7 +1,7 @@
 task: detect
 mode: train
 model: yolov8n.pt
-data: C:\Users\UAVlab\Desktop\uav_ai_company\BTR.v1i.yolov8\data.yaml
+data: <legacy-project-root>\BTR.v1i.yolov8\data.yaml
 epochs: 10
 time: null
 patience: 5
@@ -12,7 +12,7 @@ save_period: -1
 cache: false
 device: '0'
 workers: 0
-project: C:\Users\UAVlab\Desktop\uav_ai_company\training_runs
+project: <legacy-project-root>\training_runs
 name: btr_yolov8n_local_test
 exist_ok: true
 pretrained: true
@@ -109,4 +109,4 @@ auto_augment: randaugment
 erasing: 0.4
 cfg: null
 tracker: tracktrack.yaml
-save_dir: C:\Users\UAVlab\Desktop\uav_ai_company\training_runs\btr_yolov8n_local_test
+save_dir: <legacy-project-root>\training_runs\btr_yolov8n_local_test

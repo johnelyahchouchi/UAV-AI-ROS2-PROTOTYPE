@@ -3,32 +3,43 @@ from tkinter import ttk, filedialog, messagebox, simpledialog, simpledialog
 import subprocess
 import threading
 import queue
+import os
 import sys
 from pathlib import Path
 
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
 
-PROJECT_DIR = Path(r"C:\Users\UAVlab\Desktop\uav_ai_company")
-SENDER_SCRIPT = PROJECT_DIR / "win_yolo_tcp_sender.py"
+from uav_security.input_validation import InputValidationError, validate_sender_settings
+from uav_security.source_urls import source_log_label
+
+SENDER_SCRIPT = PROJECT_DIR / "01_WINDOWS_AI" / "apps" / "win_yolo_tcp_sender_botsort_threat.py"
+DEFAULT_MODEL = os.environ.get(
+    "UAV_MODEL_PATH",
+    str(PROJECT_DIR / "03_MODELS" / "active" / "detector" / "military_kaggle_v1.pt"),
+)
+BTR_MODEL = os.environ.get("UAV_BTR_MODEL_PATH", DEFAULT_MODEL)
 
 
 MODES = {
     "General surveillance - vehicles.mp4": {
-        "model": "yolov8n.pt",
+        "model": DEFAULT_MODEL,
         "source": "vehicles.mp4",
         "conf": "0.25"
     },
     "BTR armored - real tank video": {
-        "model": "btr_best_v2.pt",
+        "model": BTR_MODEL,
         "source": "tank_real_test.mp4",
         "conf": "0.4"
     },
     "BTR armored - demo video": {
-        "model": "btr_best_v2.pt",
+        "model": BTR_MODEL,
         "source": "btr_demo.mp4",
         "conf": "0.4"
     },
     "Live stream - general surveillance": {
-        "model": "yolov8n.pt",
+        "model": DEFAULT_MODEL,
         "source": "",
         "conf": "0.25"
     },
@@ -49,11 +60,13 @@ class UAVAIControlPanel:
         self.process = None
         self.log_queue = queue.Queue()
 
-        self.vm_ip = tk.StringVar(value="192.168.153.128")
+        self.vm_ip = tk.StringVar(value=os.environ.get("UAV_BRIDGE_HOST", "127.0.0.1"))
+        self.port = tk.StringVar(value=os.environ.get("UAV_BRIDGE_PORT", "5010"))
         self.mode = tk.StringVar(value="BTR armored - real tank video")
-        self.model = tk.StringVar(value="btr_best_v2.pt")
+        self.model = tk.StringVar(value=BTR_MODEL)
         self.source = tk.StringVar(value="tank_real_test.mp4")
         self.conf = tk.StringVar(value="0.15")
+        self.iou = tk.StringVar(value="0.45")
         self.imgsz = tk.StringVar(value="640")
         self.stride = tk.StringVar(value="1")
         self.send_width = tk.StringVar(value="960")
@@ -86,7 +99,10 @@ class UAVAIControlPanel:
         tk.Label(left, text="Ubuntu VM IP:").grid(row=1, column=0, sticky="w")
         tk.Entry(left, textvariable=self.vm_ip, width=34).grid(row=2, column=0, sticky="w", pady=(0, 12))
 
-        tk.Label(left, text="Demo Mode", font=("Arial", 12, "bold")).grid(row=3, column=0, sticky="w", pady=(0, 5))
+        tk.Label(left, text="Bridge port:").grid(row=3, column=0, sticky="w")
+        tk.Entry(left, textvariable=self.port, width=12).grid(row=4, column=0, sticky="w", pady=(0, 12))
+
+        tk.Label(left, text="Demo Mode", font=("Arial", 12, "bold")).grid(row=5, column=0, sticky="w", pady=(0, 5))
 
         mode_box = ttk.Combobox(
             left,
@@ -95,40 +111,43 @@ class UAVAIControlPanel:
             width=38,
             state="readonly"
         )
-        mode_box.grid(row=4, column=0, sticky="w", pady=(0, 12))
+        mode_box.grid(row=6, column=0, sticky="w", pady=(0, 12))
         mode_box.bind("<<ComboboxSelected>>", self.on_mode_change)
 
-        tk.Label(left, text="Model file:").grid(row=5, column=0, sticky="w")
+        tk.Label(left, text="Model file:").grid(row=7, column=0, sticky="w")
         model_row = tk.Frame(left)
-        model_row.grid(row=6, column=0, sticky="w", pady=(0, 10))
+        model_row.grid(row=8, column=0, sticky="w", pady=(0, 10))
         tk.Entry(model_row, textvariable=self.model, width=28).pack(side="left")
         tk.Button(model_row, text="Browse", command=self.browse_model).pack(side="left", padx=5)
 
-        tk.Label(left, text="Video / stream source:").grid(row=7, column=0, sticky="w")
+        tk.Label(left, text="Video / stream source:").grid(row=9, column=0, sticky="w")
         source_row = tk.Frame(left)
-        source_row.grid(row=8, column=0, sticky="w", pady=(0, 10))
+        source_row.grid(row=10, column=0, sticky="w", pady=(0, 10))
         tk.Entry(source_row, textvariable=self.source, width=28).pack(side="left")
         tk.Button(source_row, text="Browse", command=self.browse_source).pack(side="left", padx=5)
 
-        tk.Label(left, text="Detection settings", font=("Arial", 12, "bold")).grid(row=9, column=0, sticky="w", pady=(8, 5))
+        tk.Label(left, text="Detection settings", font=("Arial", 12, "bold")).grid(row=11, column=0, sticky="w", pady=(8, 5))
 
         settings = tk.Frame(left)
-        settings.grid(row=10, column=0, sticky="w")
+        settings.grid(row=12, column=0, sticky="w")
 
         tk.Label(settings, text="Confidence:").grid(row=0, column=0, sticky="w")
         tk.Entry(settings, textvariable=self.conf, width=10).grid(row=0, column=1, padx=8, pady=3)
 
-        tk.Label(settings, text="Image size:").grid(row=1, column=0, sticky="w")
-        tk.Entry(settings, textvariable=self.imgsz, width=10).grid(row=1, column=1, padx=8, pady=3)
+        tk.Label(settings, text="IoU:").grid(row=1, column=0, sticky="w")
+        tk.Entry(settings, textvariable=self.iou, width=10).grid(row=1, column=1, padx=8, pady=3)
 
-        tk.Label(settings, text="Stride:").grid(row=2, column=0, sticky="w")
-        tk.Entry(settings, textvariable=self.stride, width=10).grid(row=2, column=1, padx=8, pady=3)
+        tk.Label(settings, text="Image size:").grid(row=2, column=0, sticky="w")
+        tk.Entry(settings, textvariable=self.imgsz, width=10).grid(row=2, column=1, padx=8, pady=3)
 
-        tk.Label(settings, text="Send width:").grid(row=3, column=0, sticky="w")
-        tk.Entry(settings, textvariable=self.send_width, width=10).grid(row=3, column=1, padx=8, pady=3)
+        tk.Label(settings, text="Stride:").grid(row=3, column=0, sticky="w")
+        tk.Entry(settings, textvariable=self.stride, width=10).grid(row=3, column=1, padx=8, pady=3)
+
+        tk.Label(settings, text="Send width:").grid(row=4, column=0, sticky="w")
+        tk.Entry(settings, textvariable=self.send_width, width=10).grid(row=4, column=1, padx=8, pady=3)
 
         button_row = tk.Frame(left)
-        button_row.grid(row=11, column=0, sticky="w", pady=20)
+        button_row.grid(row=13, column=0, sticky="w", pady=20)
 
         self.start_btn = tk.Button(
             button_row,
@@ -158,10 +177,10 @@ class UAVAIControlPanel:
             text="Clear Log",
             width=12,
             command=self.clear_log
-        ).grid(row=12, column=0, sticky="w")
+        ).grid(row=14, column=0, sticky="w")
 
         status_box = tk.LabelFrame(left, text="Launch order reminder", padx=10, pady=8)
-        status_box.grid(row=13, column=0, sticky="we", pady=20)
+        status_box.grid(row=15, column=0, sticky="we", pady=20)
 
         reminder = (
             "1. Ubuntu: ~/start_bridge.sh\n"
@@ -225,25 +244,44 @@ class UAVAIControlPanel:
                 return
             self.source.set(source)
 
+        try:
+            settings = validate_sender_settings(
+                target=self.vm_ip.get(),
+                port=self.port.get(),
+                confidence=self.conf.get(),
+                iou=self.iou.get(),
+                image_size=self.imgsz.get(),
+                stride=self.stride.get(),
+                send_width=self.send_width.get(),
+                show="1",
+                military_only="1",
+            )
+        except InputValidationError as error:
+            messagebox.showerror("Invalid configuration", str(error))
+            return
+
         cmd = [
             sys.executable,
             str(SENDER_SCRIPT),
-            "--target", self.vm_ip.get().strip(),
+            "--target", settings.target,
+            "--port", str(settings.port),
             "--source", source,
             "--model", model,
-            "--conf", self.conf.get().strip(),
-            "--imgsz", self.imgsz.get().strip(),
-            "--stride", self.stride.get().strip(),
-            "--send_width", self.send_width.get().strip(),
-            "--show", "1"
+            "--conf", str(settings.confidence),
+            "--iou", str(settings.iou),
+            "--imgsz", str(settings.image_size),
+            "--stride", str(settings.stride),
+            "--send_width", str(settings.send_width),
+            "--show", str(settings.show),
+            "--military_only", str(settings.military_only),
         ]
 
         self.write_log("\n========================================\n")
         self.write_log("Starting sender...\n")
         self.write_log(f"Mode: {self.mode.get()}\n")
-        self.write_log(f"Model: {model}\n")
-        self.write_log(f"Source: {source}\n")
-        self.write_log(f"Target VM: {self.vm_ip.get().strip()}\n")
+        self.write_log(f"Model: {Path(model).name}\n")
+        self.write_log(f"Source: {source_log_label(source)}\n")
+        self.write_log(f"Target VM: {settings.target}:{settings.port}\n")
         self.write_log("========================================\n\n")
 
         try:

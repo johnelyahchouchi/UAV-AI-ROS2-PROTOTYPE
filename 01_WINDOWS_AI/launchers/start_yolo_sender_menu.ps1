@@ -1,39 +1,17 @@
-$VM_IP = "192.168.153.128"
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
 
-cd "$env:USERPROFILE\Desktop\uav_ai_company"
-
-Write-Host ""
-Write-Host "======================================"
-Write-Host " UAV AI + ROS2 YOLO Sender"
-Write-Host "======================================"
-Write-Host "1 = Test video vehicles.mp4"
-Write-Host "2 = Live stream URL"
+$Launcher = Join-Path $PSScriptRoot "start_yolo_sender.ps1"
+Write-Host "1 = Repository test video"
+Write-Host "2 = Approved YouTube URL"
 Write-Host "3 = Local webcam"
-Write-Host "======================================"
-Write-Host ""
+$Choice = Read-Host "Choose mode"
 
-$choice = Read-Host "Choose mode"
-
-if ($choice -eq "1") {
-    $SOURCE = "vehicles.mp4"
-}
-elseif ($choice -eq "2") {
-    $SOURCE = Read-Host "Paste live stream URL"
-}
-elseif ($choice -eq "3") {
-    $SOURCE = "0"
-}
-else {
-    Write-Host "Invalid choice. Using vehicles.mp4"
-    $SOURCE = "vehicles.mp4"
+switch ($Choice) {
+    "1" { $Source = "" }
+    "2" { $Source = Read-Host "Paste the full YouTube URL" }
+    "3" { $Source = "0" }
+    default { throw "Invalid mode selection." }
 }
 
-python win_yolo_tcp_sender.py `
-  --target $VM_IP `
-  --source $SOURCE `
-  --model yolov8n.pt `
-  --conf 0.25 `
-  --imgsz 640 `
-  --stride 2 `
-  --send_width 960 `
-  --show 1
+& $Launcher -Source $Source

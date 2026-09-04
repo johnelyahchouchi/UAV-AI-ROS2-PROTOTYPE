@@ -1,7 +1,9 @@
 import cv2
+import os
 from pathlib import Path
 
-BASE = Path(r"C:\Users\UAVlab\Desktop\uav_ai_company\dataset_v3_military_multiclass")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+BASE = Path(os.environ.get("UAV_FRAME_DATASET_ROOT", PROJECT_ROOT / "04_DATASET_ENGINEERING" / "local_data" / "dataset_v3_military_multiclass"))
 VIDEO_DIR = BASE / "00_raw_videos"
 OUT_DIR = BASE / "01_extracted_frames"
 

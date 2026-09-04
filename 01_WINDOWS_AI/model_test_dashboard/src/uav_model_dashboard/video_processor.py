@@ -26,6 +26,7 @@ from .model_manager import DeviceInfo, ModelManager
 from .output_manager import OutputManager, PublishedOutputs
 from .processing_control import ProcessingController
 from .source_adapter import UploadedVideoSource, VideoMetadata
+from uav_security.csv_safe import sanitize_csv_row
 
 
 ProgressCallback = Callable[..., None]
@@ -139,7 +140,7 @@ class VideoProcessor:
                         frame.timestamp_seconds,
                     )
                     for record in records:
-                        csv_writer.writerow(record.to_csv_row())
+                        csv_writer.writerow(sanitize_csv_row(record.to_csv_row()))
                         if len(table_rows) < self.table_limit:
                             table_rows.append(record.to_table_row())
                     accumulator.add(records)

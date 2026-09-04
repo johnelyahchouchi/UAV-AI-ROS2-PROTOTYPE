@@ -1,13 +1,17 @@
 from pathlib import Path
 import cv2
-from ultralytics import YOLO
+import os
+import sys
 
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+if str(PROJECT_DIR) not in sys.path:
+    sys.path.insert(0, str(PROJECT_DIR))
 
-PROJECT_DIR = Path(r"C:\Users\UAVlab\Desktop\uav_ai_company")
-DATASET_DIR = Path(r"C:\uav_datasets_master\07_tank_platform_recognition")
+from uav_security.model_integrity import load_trusted_yolo
 
-MODEL_PATH = PROJECT_DIR / "military_kaggle_v1.pt"
-VIDEO_PATH = PROJECT_DIR / "1minutesVIEWdroneVIDEOTANKS.mp4"
+DATASET_DIR = Path(os.environ.get("UAV_DATASET_ROOT", PROJECT_DIR / "04_DATASET_ENGINEERING" / "local_data"))
+MODEL_PATH = Path(os.environ.get("UAV_MODEL_PATH", PROJECT_DIR / "03_MODELS" / "active" / "detector" / "military_kaggle_v1.pt"))
+VIDEO_PATH = Path(os.environ.get("UAV_TEST_VIDEO", PROJECT_DIR / "06_TEST_MEDIA" / "videos" / "vehicles.mp4"))
 
 RAW_DIR = DATASET_DIR / "00_raw_by_class"
 OUTPUT_REVIEW_DIR = RAW_DIR / "99_uncertain_review"
@@ -63,7 +67,7 @@ def main():
     print("Loading model:")
     print(MODEL_PATH)
 
-    model = YOLO(str(MODEL_PATH))
+    model = load_trusted_yolo(MODEL_PATH)
 
     print("Opening video:")
     print(VIDEO_PATH)

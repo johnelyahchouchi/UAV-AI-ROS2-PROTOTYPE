@@ -1,1 +1,1 @@
-﻿ROS2 Windows mirror source: C:\Users\UAVlab\Desktop\ROS2
+ROS2 Windows mirror source: external operator-configured ROS 2 installation

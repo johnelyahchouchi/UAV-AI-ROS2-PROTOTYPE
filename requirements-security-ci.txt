@@ -1,0 +1,7 @@
+bandit==1.9.4
+cryptography==50.0.1
+opencv-python-headless==4.10.0.84
+pip==26.2
+pip-audit==2.10.1
+pytest==9.1.1
+setuptools==84.0.0

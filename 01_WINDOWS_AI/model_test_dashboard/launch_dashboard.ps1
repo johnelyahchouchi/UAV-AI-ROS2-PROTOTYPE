@@ -2,25 +2,24 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $DashboardRoot = $PSScriptRoot
-$DefaultPython = Join-Path $env:USERPROFILE "Desktop\UAV_YOLO_ENV\Scripts\python.exe"
+$ProjectRoot = (Resolve-Path (Join-Path $DashboardRoot "..\..")).Path
 $PythonExe = $env:UAV_YOLO_PYTHON
 
 if ([string]::IsNullOrWhiteSpace($PythonExe)) {
-    $PythonExe = $DefaultPython
+    throw "Set UAV_YOLO_PYTHON to the full path of the verified Python executable."
 }
 
 if (-not (Test-Path -LiteralPath $PythonExe -PathType Leaf)) {
     throw @"
 The dedicated UAV YOLO Python executable was not found.
 
-Set UAV_YOLO_PYTHON to the full path of the verified Python executable, or create:
-$DefaultPython
+Set UAV_YOLO_PYTHON to the full path of the verified Python executable.
 
 The launcher will not fall back to bare python or another Python installation.
 "@
 }
 
-$env:PYTHONPATH = Join-Path $DashboardRoot "src"
+$env:PYTHONPATH = ((Join-Path $DashboardRoot "src"), $ProjectRoot) -join [IO.Path]::PathSeparator
 $DashboardPort = $env:UAV_DASHBOARD_PORT
 
 if ([string]::IsNullOrWhiteSpace($DashboardPort)) {

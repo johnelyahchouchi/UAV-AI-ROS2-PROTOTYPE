@@ -1,0 +1,10 @@
+# Install in the controlled UAV YOLO environment. The constraint preserves the
+# project's verified CUDA stack and Ultralytics experiment version.
+-c 01_WINDOWS_AI/model_test_dashboard/constraints-yolo-env.txt
+
+numpy==1.26.4
+matplotlib==3.8.4
+opencv-python==4.10.0.84
+PyYAML==6.0.3
+ultralytics==8.4.107
+yt-dlp==2026.8.19

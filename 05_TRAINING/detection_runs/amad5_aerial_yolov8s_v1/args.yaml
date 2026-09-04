@@ -109,4 +109,4 @@ auto_augment: randaugment
 erasing: 0.4
 cfg: null
 tracker: tracktrack.yaml
-save_dir: C:\Users\UAVlab\Desktop\uav_ai_company\runs\detect\training_runs\amad5_aerial_yolov8s_v1
+save_dir: <legacy-project-root>\runs\detect\training_runs\amad5_aerial_yolov8s_v1
