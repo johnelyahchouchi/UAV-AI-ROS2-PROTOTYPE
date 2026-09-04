@@ -23,17 +23,15 @@ It does not support webcams, RTSP, live partial-video output, TCP, or ROS 2.
 
 Do not use bare `python` on this workstation. It launches Amesim Python 2.7.
 
-The verified environment is:
+Configure the verified environment explicitly; it may live anywhere outside the
+repository:
 
 ```text
-%USERPROFILE%\Desktop\UAV_YOLO_ENV\Scripts\python.exe
+UAV_YOLO_PYTHON=<absolute path to the verified Python executable>
 ```
 
-The launcher resolves Python in this order:
-
-1. `UAV_YOLO_PYTHON`, when set.
-2. `%USERPROFILE%\Desktop\UAV_YOLO_ENV\Scripts\python.exe`.
-3. A clear failure. It never silently falls back to another Python.
+The launcher requires `UAV_YOLO_PYTHON` and fails clearly when it is missing. It
+never silently falls back to another Python.
 
 ## Install dashboard-only dependencies
 
@@ -43,11 +41,8 @@ and OpenCV packages must not be upgraded or replaced.
 From this directory:
 
 ```powershell
-$Python = if ($env:UAV_YOLO_PYTHON) {
-    $env:UAV_YOLO_PYTHON
-} else {
-    Join-Path $env:USERPROFILE "Desktop\UAV_YOLO_ENV\Scripts\python.exe"
-}
+$Python = $env:UAV_YOLO_PYTHON
+if ([string]::IsNullOrWhiteSpace($Python)) { throw "Set UAV_YOLO_PYTHON first." }
 
 & $Python -m pip install `
     -r requirements.txt `
@@ -79,16 +74,17 @@ NVIDIA GeForce RTX 2060
 
 ## Default model
 
-`UAV_MODEL_PATH` takes precedence. Otherwise:
+`UAV_MODEL_PATH` takes precedence. Otherwise the dashboard displays the
+repository-relative deployment location:
 
 ```text
-%USERPROFILE%\Desktop\UAV_MODELS\military_kaggle_v1.pt
+03_MODELS\active\detector\military_kaggle_v1.pt
 ```
 
-The model remains outside this repository. The model cache is keyed by canonical
-path, file size, and modification time. Selecting an unchanged model reuses the
-loaded object. A repository-local weight can be tested, but the dashboard warns
-that model weights should not be newly committed.
+Production model artifacts should remain outside Git. Before loading, the
+dashboard hashes the selected `.pt` file and requires that SHA-256 in the trusted
+model registry. The model cache is keyed by canonical path, file size, and
+modification time. Selecting an unchanged verified model reuses the loaded object.
 
 ## Launch
 
@@ -181,7 +177,7 @@ From this directory:
 
 ```powershell
 $env:PYTHONPATH = Join-Path $PWD "src"
-& "$env:USERPROFILE\Desktop\UAV_YOLO_ENV\Scripts\python.exe" -m pytest -q
+& $env:UAV_YOLO_PYTHON -m pytest -q
 ```
 
 Automated tests use fake model results and synthetic videos. They do not require

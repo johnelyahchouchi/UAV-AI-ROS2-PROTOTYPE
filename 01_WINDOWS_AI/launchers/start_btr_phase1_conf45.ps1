@@ -1,18 +1,15 @@
-$VM_IP = "192.168.153.128"
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
 
-cd "$env:USERPROFILE\Desktop\uav_ai_company"
+$Launcher = Join-Path $PSScriptRoot "start_yolo_sender.ps1"
+$Model = $env:UAV_BTR_MODEL_PATH
+$Source = $env:UAV_TEST_VIDEO
 
-Write-Host "======================================"
-Write-Host " PHASE 1 - BTR CONFIDENCE FILTER"
-Write-Host " Only detections >= 0.45 are accepted"
-Write-Host "======================================"
+if ([string]::IsNullOrWhiteSpace($Model)) {
+    throw "Set UAV_BTR_MODEL_PATH to a trusted local checkpoint."
+}
+if ([string]::IsNullOrWhiteSpace($Source)) {
+    throw "Set UAV_TEST_VIDEO to the local BTR test video."
+}
 
-python win_yolo_tcp_sender.py `
-  --target $VM_IP `
-  --source tank_real_test.mp4 `
-  --model btr_best_v2.pt `
-  --conf 0.45 `
-  --imgsz 640 `
-  --stride 1 `
-  --send_width 960 `
-  --show 1
+& $Launcher -Model $Model -Source $Source -Confidence 0.45 -ImageSize 640 -Stride 1

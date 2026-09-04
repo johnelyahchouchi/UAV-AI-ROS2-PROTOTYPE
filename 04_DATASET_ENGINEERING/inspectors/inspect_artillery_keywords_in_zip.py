@@ -1,13 +1,19 @@
 import ast
+import os
 import re
 import zipfile
 from collections import defaultdict
 from pathlib import Path
+import sys
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-ZIP_PATH = Path(
-    r"C:\uav_datasets_master\07_tank_platform_recognition\03_downloaded_roboflow_zips\military_vehicles_126_classes_yolov8.zip"
-)
+from uav_security.safe_zip import safe_read_member, validate_zip
+
+DATASET_ROOT = Path(os.environ.get("UAV_DATASET_ROOT", PROJECT_ROOT / "04_DATASET_ENGINEERING" / "local_data"))
+ZIP_PATH = Path(os.environ.get("UAV_DATASET_ZIP", DATASET_ROOT / "03_downloaded_roboflow_zips" / "military_vehicles_126_classes_yolov8.zip"))
 
 KEYWORDS = [
     "grad",
@@ -71,6 +77,7 @@ def main():
     print("=" * 90)
 
     with zipfile.ZipFile(ZIP_PATH, "r") as z:
+        validate_zip(z)
         files = z.namelist()
 
         yaml_files = [
@@ -83,7 +90,7 @@ def main():
             return
 
         yaml_path = yaml_files[0]
-        yaml_text = z.read(yaml_path).decode("utf-8", errors="ignore")
+        yaml_text = safe_read_member(z, yaml_path).decode("utf-8", errors="ignore")
         class_names = parse_class_names(yaml_text)
 
         print(f"YAML found: {yaml_path}")
@@ -99,7 +106,7 @@ def main():
         image_counts = defaultdict(int)
 
         for label_path in label_files:
-            text = z.read(label_path).decode("utf-8", errors="ignore").strip()
+            text = safe_read_member(z, label_path).decode("utf-8", errors="ignore").strip()
 
             if not text:
                 continue

@@ -1,9 +1,17 @@
-from ultralytics import YOLO
 import cv2
 from pathlib import Path
 import csv
 import argparse
+import sys
 import time
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from uav_security.csv_safe import sanitize_csv_row
+from uav_security.model_integrity import load_trusted_yolo
+from uav_security.source_urls import source_log_label
 
 
 # ============================================================
@@ -127,14 +135,14 @@ def main():
     print("CLEAN TARGET TRACKER")
     print("=" * 70)
     print(f"Model:   {args.model}")
-    print(f"Source:  {args.source}")
+    print(f"Source:  {source_log_label(args.source)}")
     print(f"Tracker: {args.tracker}")
     print(f"Output:  {out_video}")
     print(f"CSV:     {out_csv}")
     print(f"Allowed classes: {sorted(list(allowed_classes))}")
     print("=" * 70)
 
-    model = YOLO(args.model)
+    model = load_trusted_yolo(args.model)
 
     cap = cv2.VideoCapture(args.source)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -348,7 +356,7 @@ def main():
                 if trail:
                     cv2.circle(frame, trail[-1], 6, color, -1)
 
-                csv_writer.writerow([
+                csv_writer.writerow(sanitize_csv_row([
                     frame_idx,
                     round(frame_idx / fps, 3),
                     target_id,
@@ -362,7 +370,7 @@ def main():
                     round(cx, 2),
                     round(cy, 2),
                     "active",
-                ])
+                ]))
 
         # ============================================================
         # Small dashboard overlay

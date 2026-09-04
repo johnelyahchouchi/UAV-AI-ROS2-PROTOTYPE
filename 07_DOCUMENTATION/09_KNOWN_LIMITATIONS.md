@@ -52,3 +52,23 @@ Deployments involving multiple UAVs or higher data rates may require distributed
 The modular architecture of the project allows individual components to be upgraded independently.
 
 Future developments may include improved detection models, advanced threat assessment, additional sensors, optimized communication mechanisms and tighter integration with autonomous robotic behaviors.
+
+---
+
+## Security and deployment limitations
+
+- Protocol version 2 protects the Windows-to-bridge hop only. DDS traffic needs a
+  separately provisioned SROS2 keystore and enforce-mode deployment.
+- Mutual-TLS certificates, private keys, firewall rules, and model artifacts are
+  operator-managed and intentionally absent from Git.
+- The in-process replay cache is bounded and is not persisted across a bridge
+  restart. TLS still rejects ciphertext from old TLS sessions, but a compromised
+  authenticated endpoint remains inside the trust boundary.
+- OpenCV processes attacker-influenced JPEGs after encoded-size and header
+  dimension checks. Keep the pinned supported OpenCV build patched and isolate
+  the bridge host from unrelated workloads.
+- Checkpoint allowlisting establishes file identity, not model quality or safety.
+- Historical Git commits still contain model binaries and workstation inventory
+  until a coordinated manual history rewrite is performed.
+- The ROS 2 mirror is not the live Ubuntu workspace. Hardened bridge/shared files
+  must be deployed to the real workspace together and validated there.

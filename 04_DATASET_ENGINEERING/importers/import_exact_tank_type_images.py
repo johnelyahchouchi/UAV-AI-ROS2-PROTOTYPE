@@ -1,11 +1,18 @@
 import csv
 import hashlib
+import os
 from pathlib import Path
+import sys
 
 import cv2
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-DATASET_DIR = Path(r"C:\uav_datasets_master\07_tank_platform_recognition")
+from uav_security.csv_safe import sanitize_csv_rows
+
+DATASET_DIR = Path(os.environ.get("UAV_DATASET_ROOT", PROJECT_ROOT / "04_DATASET_ENGINEERING" / "local_data"))
 
 INCOMING_DIR = DATASET_DIR / "02_incoming_exact_type_images"
 RAW_DIR = DATASET_DIR / "00_raw_by_class"
@@ -35,7 +42,7 @@ ALLOWED_CLASSES = {
 
 
 def file_md5(path):
-    h = hashlib.md5()
+    h = hashlib.md5(usedforsecurity=False)
 
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
@@ -219,7 +226,7 @@ def main():
             ]
         )
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows(sanitize_csv_rows(rows))
 
     print("\n" + "=" * 70)
     print("IMPORT FINISHED")

@@ -1,8 +1,15 @@
 import csv
+import os
 from pathlib import Path
+import sys
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-DATASET_DIR = Path(r"C:\uav_datasets_master\07_tank_platform_recognition")
+from uav_security.csv_safe import sanitize_csv_rows
+
+DATASET_DIR = Path(os.environ.get("UAV_DATASET_ROOT", PROJECT_ROOT / "04_DATASET_ENGINEERING" / "local_data"))
 RAW_DIR = DATASET_DIR / "00_raw_by_class"
 OUTPUT_CSV = DATASET_DIR / "raw_dataset_audit.csv"
 
@@ -123,7 +130,7 @@ def main():
             fieldnames=["class_name", "image_count", "status", "folder"]
         )
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows(sanitize_csv_rows(rows))
 
     print(f"\nCSV audit saved to:")
     print(OUTPUT_CSV)

@@ -7,6 +7,7 @@ import time
 from collections import Counter, deque
 from datetime import datetime
 from pathlib import Path
+import sys
 
 import cv2
 import numpy as np
@@ -14,6 +15,12 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from uav_security.csv_safe import sanitize_csv_row
 
 
 WHITE = (255, 255, 255)
@@ -592,7 +599,7 @@ class UAVThreatAnalyticsDashboardV2(Node):
             threat_scores.append(threat_score)
             threat_counts[threat_level] += 1
 
-            self.positions_writer.writerow([
+            self.positions_writer.writerow(sanitize_csv_row([
                 datetime.now().isoformat(timespec="milliseconds"),
                 round(mission_time, 3),
                 target_id,
@@ -609,7 +616,7 @@ class UAVThreatAnalyticsDashboardV2(Node):
                 track_id,
                 raw_id,
                 source,
-            ])
+            ]))
 
         self.total_detections += len(self.latest_detections)
         self.last_second_count += len(self.latest_detections)

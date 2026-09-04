@@ -3,8 +3,15 @@ import csv
 import math
 import time
 from pathlib import Path
+import sys
 
-from ultralytics import YOLO
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from uav_security.csv_safe import sanitize_csv_row
+from uav_security.model_integrity import load_trusted_yolo
+from uav_security.source_urls import source_log_label
 
 
 MILITARY_KEYWORDS = [
@@ -97,10 +104,10 @@ def main():
     mission_csv = output_dir / "mission_report.csv"
 
     print("[INFO] Loading model:", args.model)
-    model = YOLO(args.model)
+    model = load_trusted_yolo(args.model)
 
     print("[INFO] Model classes:", getattr(model, "names", {}))
-    print("[INFO] Source:", args.source)
+    print("[INFO] Source:", source_log_label(args.source))
     print("[INFO] Output folder:", output_dir)
 
     clean_mapper = CleanIDMapper()
@@ -255,7 +262,7 @@ def main():
 
                 accepted_detections += 1
 
-                writer.writerow([
+                writer.writerow(sanitize_csv_row([
                     frame_index,
                     round(frame_time, 3),
                     target_id,
@@ -281,7 +288,7 @@ def main():
                     args.model,
                     args.tracker,
                     args.source,
-                ])
+                ]))
 
             if frame_index % 50 == 0:
                 print(f"[INFO] Processed frame {frame_index} | accepted detections: {accepted_detections}")
@@ -318,7 +325,7 @@ def main():
             avg_bbox_area = mem["bbox_area_sum"] / max(1, mem["total_seen_frames"])
             duration = mem["last_seen_sec"] - mem["first_seen_sec"]
 
-            writer.writerow([
+            writer.writerow(sanitize_csv_row([
                 target_id,
                 mem["clean_track_id"],
                 ";".join(str(x) for x in sorted(mem["raw_track_ids"]) if x is not None),
@@ -339,7 +346,7 @@ def main():
                 round(mem["last_direction_deg"], 3),
                 round(avg_bbox_area, 2),
                 mem["max_bbox_area"],
-            ])
+            ]))
 
     mission_duration = time.time() - start_time
     total_targets = len(target_memory)
@@ -351,9 +358,9 @@ def main():
         writer = csv.writer(f)
 
         writer.writerow(["metric", "value"])
-        writer.writerow(["source_video", args.source])
-        writer.writerow(["model", args.model])
-        writer.writerow(["tracker", args.tracker])
+        writer.writerow(sanitize_csv_row(["source_video", args.source]))
+        writer.writerow(sanitize_csv_row(["model", args.model]))
+        writer.writerow(sanitize_csv_row(["tracker", args.tracker]))
         writer.writerow(["confidence_threshold", args.conf])
         writer.writerow(["image_size", args.imgsz])
         writer.writerow(["processed_frames", frame_index])

@@ -1,10 +1,12 @@
 from pathlib import Path
+import os
 import shutil
 import cv2
 import numpy as np
 
 
-DATASET_DIR = Path(r"C:\uav_datasets_master\07_tank_platform_recognition")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATASET_DIR = Path(os.environ.get("UAV_DATASET_ROOT", PROJECT_ROOT / "04_DATASET_ENGINEERING" / "local_data"))
 RAW_DIR = DATASET_DIR / "00_raw_by_class"
 REVIEW_DIR = RAW_DIR / "99_uncertain_review"
 SKIPPED_DIR = RAW_DIR / "98_skipped_review_later"

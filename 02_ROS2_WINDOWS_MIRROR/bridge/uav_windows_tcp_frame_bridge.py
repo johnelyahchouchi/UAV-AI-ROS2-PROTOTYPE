@@ -1,18 +1,40 @@
 #!/usr/bin/env python3
 
 import json
+import ipaddress
+import os
+from pathlib import Path
 import socket
-import struct
+import ssl
+import sys
 import threading
-
-import cv2
-import numpy as np
 
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
 from cv_bridge import CvBridge
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from uav_security.config import DEFAULT_BIND_ADDRESS, DEFAULT_PORT, SecurityLimits
+from uav_security.detection import sanitize_frame_header
+from uav_security.image_validation import decode_and_validate_jpeg
+from uav_security.input_validation import validate_integer, validate_ip
+from uav_security.transport import (
+    ConnectionClosed,
+    ProtocolError,
+    SessionReplayCache,
+    SessionSequenceValidator,
+    create_server_tls_context,
+    parse_allowed_cidrs,
+    peer_is_allowed,
+    receive_packet,
+    server_tls_files,
+    validate_negotiated_tls,
+)
 
 def force_btr_labels(detections):
     """
@@ -38,24 +60,19 @@ def force_btr_labels(detections):
 
     return detections
 
-
-
-def recv_exact(conn, n):
-    data = b""
-    while len(data) < n:
-        chunk = conn.recv(n - len(data))
-        if not chunk:
-            return None
-        data += chunk
-    return data
-
-
 class UAVWindowsTCPFrameBridge(Node):
     def __init__(self):
         super().__init__("uav_windows_tcp_frame_bridge")
 
         self.uav_id = "uav_1"
-        self.port = 5010
+        self.bind_address = validate_ip(os.environ.get("UAV_BRIDGE_BIND_ADDRESS", DEFAULT_BIND_ADDRESS))
+        self.port = validate_integer(
+            os.environ.get("UAV_BRIDGE_PORT", str(DEFAULT_PORT)), "Bridge port", 1, 65_535
+        )
+        self.allowed_networks = parse_allowed_cidrs(os.environ.get("UAV_BRIDGE_ALLOWED_CIDRS"))
+        self.limits = SecurityLimits.from_environment()
+        self.tls_context = create_server_tls_context(server_tls_files())
+        self.replay_cache = SessionReplayCache()
         self.bridge = CvBridge()
 
         self.image_pub = self.create_publisher(Image, f"/{self.uav_id}/camera/image_raw", 10)
@@ -63,8 +80,8 @@ class UAVWindowsTCPFrameBridge(Node):
 
         self.latest_frame = None
         self.latest_detections = []
-        self.latest_seq = -1
-        self.published_seq = -1
+        self.latest_message_id = None
+        self.published_message_id = None
         self.lock = threading.Lock()
 
         self.thread = threading.Thread(target=self.server_loop, daemon=True)
@@ -72,69 +89,73 @@ class UAVWindowsTCPFrameBridge(Node):
 
         self.timer = self.create_timer(0.01, self.publish_latest)
 
-        self.get_logger().info("TCP bridge ready")
-        self.get_logger().info(f"Listening on port {self.port}")
+        self.get_logger().info("Authenticated TLS 1.3 TCP bridge ready")
+        self.get_logger().info(f"Listening on {self.bind_address}:{self.port}")
         self.get_logger().info(f"Publishing /{self.uav_id}/camera/image_raw")
         self.get_logger().info(f"Publishing /{self.uav_id}/coco_detections")
 
     def server_loop(self):
-        srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        family = socket.AF_INET6 if ipaddress.ip_address(self.bind_address).version == 6 else socket.AF_INET
+        srv = socket.socket(family, socket.SOCK_STREAM)
         srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        srv.bind(("0.0.0.0", self.port))
-        srv.listen(1)
+        srv.bind((self.bind_address, self.port))
+        srv.listen(self.limits.listen_backlog)
+        srv.settimeout(self.limits.listener_timeout)
 
-        while True:
-            self.get_logger().info("Waiting for Windows YOLO sender...")
-            conn, addr = srv.accept()
-            self.get_logger().info(f"Connected: {addr}")
+        while rclpy.ok():
+            try:
+                raw_conn, addr = srv.accept()
+            except socket.timeout:
+                continue
+            peer_ip = addr[0]
+            if not peer_is_allowed(peer_ip, self.allowed_networks):
+                self.get_logger().warning(f"Rejected TCP peer outside allowlist: {peer_ip}")
+                raw_conn.close()
+                continue
+            raw_conn.settimeout(self.limits.socket_read_timeout)
 
             try:
-                while True:
-                    header_len_bytes = recv_exact(conn, 4)
-                    if header_len_bytes is None:
-                        break
-
-                    header_len = struct.unpack("!I", header_len_bytes)[0]
-
-                    header_bytes = recv_exact(conn, header_len)
-                    if header_bytes is None:
-                        break
-
-                    header = json.loads(header_bytes.decode("utf-8"))
-
-                    jpeg_size = int(header["jpeg_size"])
-                    jpeg_bytes = recv_exact(conn, jpeg_size)
-                    if jpeg_bytes is None:
-                        break
-
-                    frame_np = np.frombuffer(jpeg_bytes, dtype=np.uint8)
-                    frame = cv2.imdecode(frame_np, cv2.IMREAD_COLOR)
-
-                    if frame is None:
-                        continue
-
-                    with self.lock:
-                        self.latest_frame = frame
-                        self.latest_detections = header.get("detections", [])
-                        self.latest_seq = int(header.get("seq", 0))
-
-            except Exception as e:
-                self.get_logger().error(f"Bridge error: {e}")
-
+                with self.tls_context.wrap_socket(raw_conn, server_side=True) as conn:
+                    validate_negotiated_tls(conn)
+                    self.get_logger().info(f"Authenticated sender connected: {peer_ip}")
+                    self.handle_connection(conn)
+            except ConnectionClosed:
+                self.get_logger().warning("Authenticated sender disconnected")
+            except (ssl.SSLError, ProtocolError, ValueError) as error:
+                self.get_logger().warning(f"Rejected sender data from {peer_ip}: {error}")
+            except OSError as error:
+                self.get_logger().warning(f"Sender connection ended: {error}")
             finally:
-                conn.close()
-                self.get_logger().warn("Windows sender disconnected")
+                raw_conn.close()
+
+        srv.close()
+
+    def handle_connection(self, conn):
+        sequence_validator = SessionSequenceValidator(self.replay_cache)
+        while rclpy.ok():
+            packet = receive_packet(conn, limits=self.limits)
+            sequence = sequence_validator.check(packet.header)
+            frame = decode_and_validate_jpeg(packet.jpeg, limits=self.limits)
+            height, width = frame.shape[:2]
+            header = sanitize_frame_header(packet.header, width, height, limits=self.limits)
+            detections = force_btr_labels(header["detections"])
+            sequence_validator.commit(sequence)
+            message_id = (header["session_id"], sequence)
+            with self.lock:
+                self.latest_frame = frame
+                self.latest_detections = detections
+                self.latest_message_id = message_id
 
     def publish_latest(self):
         with self.lock:
             if self.latest_frame is None:
                 return
-            if self.latest_seq == self.published_seq:
+            if self.latest_message_id == self.published_message_id:
                 return
 
             frame = self.latest_frame.copy()
             detections = list(self.latest_detections)
-            seq = self.latest_seq
+            message_id = self.latest_message_id
 
         img_msg = self.bridge.cv2_to_imgmsg(frame, encoding="bgr8")
         img_msg.header.stamp = self.get_clock().now().to_msg()
@@ -145,7 +166,7 @@ class UAVWindowsTCPFrameBridge(Node):
         det_msg.data = json.dumps(detections)
         self.det_pub.publish(det_msg)
 
-        self.published_seq = seq
+        self.published_message_id = message_id
 
 
 def main(args=None):

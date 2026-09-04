@@ -1,8 +1,11 @@
+import os
 from pathlib import Path
 import shutil
 
-SRC = Path(r"C:\rf_datasets\tank")
-DST = Path(r"C:\rf_datasets\tank_clean")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATASET_ROOT = Path(os.environ.get("UAV_DATASET_ROOT", PROJECT_ROOT / "04_DATASET_ENGINEERING" / "local_data"))
+SRC = DATASET_ROOT / "tank"
+DST = DATASET_ROOT / "tank_clean"
 
 splits = ["train", "valid", "test"]
 image_exts = [".jpg", ".jpeg", ".png", ".bmp", ".webp"]

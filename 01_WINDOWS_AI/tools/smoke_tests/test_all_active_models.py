@@ -6,7 +6,12 @@ from pathlib import Path
 
 import cv2
 import torch
-from ultralytics import YOLO
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from uav_security.model_integrity import load_trusted_yolo
 
 
 def get_class_name(names, class_id):
@@ -184,7 +189,7 @@ def main():
 
     detector_start = time.perf_counter()
 
-    detector = YOLO(str(model_paths["military_detector"]))
+    detector = load_trusted_yolo(model_paths["military_detector"])
 
     detector_result = detector.predict(
         source=frame,
@@ -265,7 +270,7 @@ def main():
         try:
             start = time.perf_counter()
 
-            classifier = YOLO(str(model_path))
+            classifier = load_trusted_yolo(model_path)
 
             result = classifier.predict(
                 source=crop,

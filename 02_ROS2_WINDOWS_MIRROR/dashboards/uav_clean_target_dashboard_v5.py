@@ -9,6 +9,7 @@ import time
 from collections import Counter, deque
 from datetime import datetime
 from pathlib import Path
+import sys
 
 import cv2
 import numpy as np
@@ -18,6 +19,12 @@ from rclpy.node import Node
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from uav_security.csv_safe import sanitize_csv_row
 
 
 TARGET_COLORS = [
@@ -628,7 +635,7 @@ class UAVCleanTargetDashboardV5(Node):
                     age_sec = now - mem["last_seen_time"]
                     status = "active" if age_sec <= TARGET_TIMEOUT_SECONDS else "lost"
 
-                    writer.writerow([
+                    writer.writerow(sanitize_csv_row([
                         target_id,
                         mem["track_id"],
                         mem["raw_id"],
@@ -649,7 +656,7 @@ class UAVCleanTargetDashboardV5(Node):
                         round(mem["last_direction_deg"], 2),
                         status,
                         mem["source"],
-                    ])
+                    ]))
         except Exception:
             pass
 
@@ -908,7 +915,7 @@ class UAVCleanTargetDashboardV5(Node):
 
             timestamp = datetime.now().isoformat(timespec="milliseconds")
 
-            self.csv_writer.writerow([
+            self.csv_writer.writerow(sanitize_csv_row([
                 timestamp,
                 self.frame_index,
                 target_id,
@@ -936,7 +943,7 @@ class UAVCleanTargetDashboardV5(Node):
                 round(direction_deg, 3),
                 "active",
                 source,
-            ])
+            ]))
 
         self.last_total_detections = total_detections
         self.last_accepted_detections = accepted_detections

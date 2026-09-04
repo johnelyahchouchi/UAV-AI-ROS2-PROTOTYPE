@@ -40,7 +40,11 @@ def build_processor(
     table_limit: int = 10_000,
 ) -> VideoProcessor:
     return VideoProcessor(
-        ModelManager(loader=lambda _: model, torch_module=CpuTorch()),
+        ModelManager(
+            loader=lambda _: model,
+            torch_module=CpuTorch(),
+            verifier=lambda _: "verified",
+        ),
         OutputManager(tmp_path / "outputs"),
         controller,
         table_limit=table_limit,

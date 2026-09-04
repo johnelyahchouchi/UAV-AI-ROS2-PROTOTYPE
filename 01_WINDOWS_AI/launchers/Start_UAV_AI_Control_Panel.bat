@@ -1,4 +1,7 @@
 @echo off
-cd /d "%USERPROFILE%\Desktop\uav_ai_company"
-python uav_ai_control_panel.py
+if "%UAV_YOLO_PYTHON%"=="" (
+  echo Set UAV_YOLO_PYTHON to the verified Python executable.
+  exit /b 1
+)
+"%UAV_YOLO_PYTHON%" "%~dp0..\apps\uav_ai_control_panel.py"
 pause

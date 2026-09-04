@@ -1,7 +1,7 @@
 task: detect
 mode: train
 model: yolov8s.pt
-data: C:\Users\UAVlab\Desktop\uav_ai_company\big_datasets\01_kaggle_military_assets\military_object_dataset\data.yaml
+data: <legacy-project-root>\big_datasets\01_kaggle_military_assets\military_object_dataset\data.yaml
 epochs: 15
 time: null
 patience: 5
@@ -12,7 +12,7 @@ save_period: -1
 cache: false
 device: '0'
 workers: 0
-project: C:\Users\UAVlab\Desktop\uav_ai_company\training_runs
+project: <legacy-project-root>\training_runs
 name: military_kaggle_yolov8s_v1
 exist_ok: true
 pretrained: true
@@ -109,4 +109,4 @@ auto_augment: randaugment
 erasing: 0.4
 cfg: null
 tracker: tracktrack.yaml
-save_dir: C:\Users\UAVlab\Desktop\uav_ai_company\training_runs\military_kaggle_yolov8s_v1
+save_dir: <legacy-project-root>\training_runs\military_kaggle_yolov8s_v1

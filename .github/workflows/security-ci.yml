@@ -1,0 +1,46 @@
+name: Security CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install security test tools
+        run: python -m pip install --requirement requirements-security-ci.txt
+      - name: Compile Python
+        run: python -m compileall -q uav_security 01_WINDOWS_AI 02_ROS2_WINDOWS_MIRROR 04_DATASET_ENGINEERING 05_TRAINING 06_AGENTIC_AUTONOMY
+      - name: Security regression tests
+        run: python -m pytest -q tests/security
+      - name: Mission copilot regression tests
+        working-directory: 06_AGENTIC_AUTONOMY
+        run: python -m pytest -q
+      - name: Dependency audit
+        run: python -m pip_audit --strict
+      - name: Static security scan
+        run: >-
+          python -m bandit -q -ll -r uav_security
+          01_WINDOWS_AI/apps/win_yolo_tcp_sender_botsort_threat.py
+          01_WINDOWS_AI/apps/uav_ai_control_panel.py
+          02_ROS2_WINDOWS_MIRROR/bridge/uav_windows_tcp_frame_bridge.py
+          04_DATASET_ENGINEERING/importers
+          -s B404,B603,B607
+      - name: Reject committed private keys
+        shell: bash
+        run: |
+          if git grep -I -n -E 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY'; then
+            echo 'Private-key material must never be committed.' >&2
+            exit 1
+          fi

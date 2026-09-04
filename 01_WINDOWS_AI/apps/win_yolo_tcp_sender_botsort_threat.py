@@ -1,12 +1,27 @@
 import argparse
-import json
-import socket
-import struct
-import subprocess
+import os
+from pathlib import Path
+import sys
 import time
 
 import cv2
-from ultralytics import YOLO
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from uav_security.config import SecurityLimits
+from uav_security.input_validation import validate_sender_settings
+from uav_security.model_integrity import load_trusted_yolo
+from uav_security.source_urls import resolve_video_source, source_log_label
+from uav_security.transport import (
+    client_tls_files,
+    connect_tls_sender,
+    create_client_tls_context,
+    encode_packet,
+    make_frame_header,
+    new_session_id,
+)
 
 
 MILITARY_KEYWORDS = [
@@ -47,14 +62,10 @@ def normalize_name(name):
 
 
 def resolve_source(source: str) -> str:
-    if "youtube.com" in source or "youtu.be" in source:
+    resolved = resolve_video_source(source)
+    if resolved != source:
         print("Extracting YouTube stream URL with yt-dlp...")
-        url = subprocess.check_output(
-            ["yt-dlp", "-g", "-f", "best", source],
-            text=True
-        ).strip().splitlines()[0]
-        return url
-    return source
+    return resolved
 
 
 def get_yolo_class_name(model, cls_id):
@@ -200,39 +211,39 @@ def get_alert_priority(threat_level):
     return 4
 
 
-def send_packet(sock, frame, detections, seq):
+def send_packet(sock, session_id, frame, detections, seq, limits):
     ok, jpeg = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
     if not ok:
         return False
 
     jpeg_bytes = jpeg.tobytes()
 
-    header = {
-        "seq": seq,
-        "timestamp": time.time(),
-        "source_width": frame.shape[1],
-        "source_height": frame.shape[0],
-        "jpeg_size": len(jpeg_bytes),
-        "detections": detections,
-    }
-
-    header_bytes = json.dumps(header).encode("utf-8")
-
-    sock.sendall(struct.pack("!I", len(header_bytes)))
-    sock.sendall(header_bytes)
-    sock.sendall(jpeg_bytes)
+    header = make_frame_header(
+        session_id=session_id,
+        sequence=seq,
+        width=frame.shape[1],
+        height=frame.shape[0],
+        jpeg_size=len(jpeg_bytes),
+        detections=detections,
+    )
+    sock.sendall(encode_packet(header, jpeg_bytes, limits=limits))
 
     return True
 
 
-def connect_to_bridge(ip, port):
+def connect_to_bridge(ip, port, tls_context, server_name, timeout):
     while True:
         try:
             print(f"Connecting to ROS2 bridge at {ip}:{port} ...")
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.connect((ip, port))
-            print("Connected.")
-            return sock
+            sock = connect_tls_sender(
+                ip,
+                port,
+                context=tls_context,
+                server_name=server_name,
+                timeout=timeout,
+            )
+            print("Connected with mutually authenticated TLS 1.3.")
+            return sock, new_session_id()
         except Exception as e:
             print(f"[WAIT] Could not connect: {e}")
             time.sleep(2)
@@ -240,8 +251,8 @@ def connect_to_bridge(ip, port):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--target", required=True, help="Ubuntu VM IP")
-    parser.add_argument("--port", type=int, default=5010)
+    parser.add_argument("--target", default=os.environ.get("UAV_BRIDGE_HOST", "127.0.0.1"), help="Ubuntu bridge IP")
+    parser.add_argument("--port", default=os.environ.get("UAV_BRIDGE_PORT", "5010"))
     parser.add_argument("--source", default="vehicles.mp4")
     parser.add_argument("--model", default="military_kaggle_v1.pt")
     parser.add_argument("--conf", type=float, default=0.25)
@@ -254,19 +265,47 @@ def main():
     parser.add_argument("--tracker", default="botsort.yaml")
     args = parser.parse_args()
 
+    settings = validate_sender_settings(
+        target=args.target,
+        port=args.port,
+        confidence=args.conf,
+        iou=args.iou,
+        image_size=args.imgsz,
+        stride=args.stride,
+        send_width=args.send_width,
+        show=args.show,
+        military_only=args.military_only,
+    )
+    args.target = settings.target
+    args.port = settings.port
+    args.conf = settings.confidence
+    args.iou = settings.iou
+    args.imgsz = settings.image_size
+    args.stride = settings.stride
+    args.send_width = settings.send_width
+    args.show = settings.show
+    args.military_only = settings.military_only
+    limits = SecurityLimits.from_environment()
+    tls_context = create_client_tls_context(client_tls_files())
+    tls_server_name = os.environ.get("UAV_BRIDGE_TLS_SERVER_NAME", args.target).strip()
+    if not tls_server_name:
+        raise ValueError("UAV_BRIDGE_TLS_SERVER_NAME cannot be empty")
+
     source = resolve_source(args.source)
 
-    print("Opening source:", source)
-    print("Loading YOLO model:", args.model)
+    print("Opening source:", source_log_label(source))
+    print("Loading verified YOLO model:", Path(args.model).name)
 
-    model = YOLO(args.model)
+    model = load_trusted_yolo(args.model)
 
     print("Model classes:", getattr(model, "names", {}))
     print("Tracker:", args.tracker)
 
     clean_mapper = CleanIDMapper()
 
-    sock = connect_to_bridge(args.target, args.port)
+    sock, session_id = connect_to_bridge(
+        args.target, args.port, tls_context, tls_server_name, limits.socket_read_timeout
+    )
 
     seq = 0
     last_log = time.time()
@@ -367,7 +406,7 @@ def main():
                 detections.append({
                     "uav_id": "uav_1",
                     "source": "windows_gpu_yolo_tcp_botsort_threat",
-                    "model": args.model,
+                    "model": Path(args.model).name,
 
                     "class": class_name,
                     "class_name": class_name,
@@ -429,14 +468,16 @@ def main():
                 })
 
         try:
-            send_packet(sock, frame, detections, seq)
+            send_packet(sock, session_id, frame, detections, seq, limits)
         except Exception as e:
             print(f"[WARN] TCP send failed: {e}")
             try:
                 sock.close()
             except Exception:
                 pass
-            sock = connect_to_bridge(args.target, args.port)
+            sock, session_id = connect_to_bridge(
+                args.target, args.port, tls_context, tls_server_name, limits.socket_read_timeout
+            )
             continue
 
         if args.show:

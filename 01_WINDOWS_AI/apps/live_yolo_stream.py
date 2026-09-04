@@ -1,14 +1,19 @@
 import cv2
-import subprocess
-from ultralytics import YOLO
+import os
+from pathlib import Path
+import sys
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from uav_security.model_integrity import load_trusted_yolo
+from uav_security.source_urls import resolve_video_source
 
 YOUTUBE_URL = "https://www.youtube.com/@cityofmurfreesboro-traffic7836/live"
 
 print("Extracting live stream URL...")
-stream_url = subprocess.check_output(
-    ["yt-dlp", "-g", "-f", "best", YOUTUBE_URL],
-    text=True
-).strip().splitlines()[0]
+stream_url = resolve_video_source(os.environ.get("UAV_VIDEO_SOURCE", YOUTUBE_URL))
 
 print("Opening stream...")
 cap = cv2.VideoCapture(stream_url)
@@ -17,7 +22,10 @@ if not cap.isOpened():
     print("ERROR: Could not open stream.")
     exit()
 
-model = YOLO("yolov8n.pt")
+model_path = os.environ.get("UAV_MODEL_PATH", "").strip()
+if not model_path:
+    raise RuntimeError("UAV_MODEL_PATH must identify a trusted local .pt checkpoint")
+model = load_trusted_yolo(model_path)
 
 print("Running YOLO live. Press Q to quit.")
 

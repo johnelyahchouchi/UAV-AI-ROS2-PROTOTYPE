@@ -13,6 +13,7 @@ from ultralytics import YOLO
 
 from .configuration import DeviceChoice
 from .errors import DashboardError
+from uav_security.model_integrity import ModelIntegrityError, verify_trusted_model
 
 
 @dataclass(frozen=True)
@@ -49,9 +50,11 @@ class ModelManager:
         self,
         loader: Callable[[str], Any] = YOLO,
         torch_module: Any = torch,
+        verifier: Callable[[Path], str] = verify_trusted_model,
     ) -> None:
         self._loader = loader
         self._torch = torch_module
+        self._verifier = verifier
         self._cache_lock = threading.Lock()
         self._run_lock = threading.Lock()
         self._cached_identity: ModelIdentity | None = None
@@ -83,7 +86,14 @@ class ModelManager:
                 return ModelHandle(self._cached_model, identity, loaded_now=False)
 
             try:
+                self._verifier(identity.canonical_path)
                 model = self._loader(str(identity.canonical_path))
+            except ModelIntegrityError as error:
+                raise DashboardError(
+                    "MODEL_INTEGRITY_FAILED",
+                    str(error),
+                    recovery="Add an independently verified SHA-256 to the trusted registry.",
+                ) from error
             except Exception as error:
                 raise DashboardError(
                     "MODEL_LOAD_FAILED",

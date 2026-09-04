@@ -1,20 +1,24 @@
 import ast
+import os
 import re
 import zipfile
 from collections import defaultdict
 from pathlib import Path
+import sys
 
 import cv2
 import numpy as np
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-ZIP_DIR = Path(
-    r"C:\uav_datasets_master\07_tank_platform_recognition\03_downloaded_roboflow_zips"
-)
+from uav_security.config import SecurityLimits
+from uav_security.safe_zip import safe_read_member, validate_zip
 
-RAW_DIR = Path(
-    r"C:\uav_datasets_master\07_tank_platform_recognition\00_raw_by_class"
-)
+DATASET_DIR = Path(os.environ.get("UAV_DATASET_ROOT", PROJECT_ROOT / "04_DATASET_ENGINEERING" / "local_data"))
+ZIP_DIR = DATASET_DIR / "03_downloaded_roboflow_zips"
+RAW_DIR = DATASET_DIR / "00_raw_by_class"
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
@@ -176,6 +180,8 @@ def inspect_and_import_zip(zip_path):
     imported_counts = defaultdict(int)
 
     with zipfile.ZipFile(zip_path, "r") as z:
+        limits = SecurityLimits.from_environment()
+        validate_zip(z, limits=limits)
         files = z.namelist()
 
         yaml_files = [
@@ -187,7 +193,7 @@ def inspect_and_import_zip(zip_path):
             print("No data.yaml or dataset.yaml found. Skipped.")
             return imported_counts
 
-        yaml_text = z.read(yaml_files[0]).decode("utf-8", errors="ignore")
+        yaml_text = safe_read_member(z, yaml_files[0]).decode("utf-8", errors="ignore")
         class_names = parse_class_names(yaml_text)
 
         class_id_to_dest = {}
@@ -226,7 +232,7 @@ def inspect_and_import_zip(zip_path):
         safe_zip_stem = re.sub(r"[^a-zA-Z0-9_]+", "_", zip_path.stem)
 
         for label_path in label_files:
-            label_text = z.read(label_path).decode("utf-8", errors="ignore").strip()
+            label_text = safe_read_member(z, label_path).decode("utf-8", errors="ignore").strip()
 
             if not label_text:
                 continue
@@ -236,10 +242,20 @@ def inspect_and_import_zip(zip_path):
             if image_path is None:
                 continue
 
-            image_bytes = np.frombuffer(z.read(image_path), dtype=np.uint8)
+            image_bytes = np.frombuffer(
+                safe_read_member(z, image_path, maximum_size=limits.max_jpeg_size),
+                dtype=np.uint8,
+            )
             image = cv2.imdecode(image_bytes, cv2.IMREAD_COLOR)
 
             if image is None:
+                continue
+            image_height, image_width = image.shape[:2]
+            if (
+                image_width > limits.max_image_width
+                or image_height > limits.max_image_height
+                or image_width * image_height > limits.max_image_pixels
+            ):
                 continue
 
             label_stem = Path(label_path).stem

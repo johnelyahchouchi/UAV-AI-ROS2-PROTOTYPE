@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: "/01_WINDOWS_AI/model_test_dashboard"
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: "/06_AGENTIC_AUTONOMY"
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly

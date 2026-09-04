@@ -1,4 +1,4 @@
-﻿# Detection Dataset Configuration Registry
+# Detection Dataset Configuration Registry
 
 ## AMAD5 aerial detector
 
@@ -18,7 +18,7 @@ Historical configuration:
 
 Original dataset location:
 
-`C:\Users\UAVlab\Desktop\uav_ai_company\BTR.v1i.yolov8`
+`<legacy-project-root>\BTR.v1i.yolov8`
 
 Status:
 
@@ -32,7 +32,7 @@ Historical configuration:
 
 Original dataset location:
 
-`C:\Users\UAVlab\Desktop\uav_ai_company\big_datasets\01_kaggle_military_assets\military_object_dataset`
+`<legacy-project-root>\big_datasets\01_kaggle_military_assets\military_object_dataset`
 
 Status:
 

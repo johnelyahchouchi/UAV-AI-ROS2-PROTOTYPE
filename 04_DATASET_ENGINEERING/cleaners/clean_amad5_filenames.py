@@ -1,10 +1,13 @@
+import os
 from pathlib import Path
 import shutil
 
-SRC = Path(r"C:\uav_datasets_master\05_amad5_aerial_military_5class")
-DST = Path(r"C:\uav_datasets_master\05_amad5_aerial_military_5class_clean")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATASET_ROOT = Path(os.environ.get("UAV_DATASET_ROOT", PROJECT_ROOT / "04_DATASET_ENGINEERING" / "local_data"))
+SRC = DATASET_ROOT / "05_amad5_aerial_military_5class"
+DST = DATASET_ROOT / "05_amad5_aerial_military_5class_clean"
 
-CONFIG_DIR = Path(r"C:\Users\UAVlab\Desktop\uav_ai_company\training_configs")
+CONFIG_DIR = PROJECT_ROOT / "05_TRAINING" / "configs" / "training_configs"
 CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}

@@ -43,7 +43,11 @@ def test_cache_uses_canonical_path_size_and_mtime(tmp_path: Path) -> None:
         calls.append(path)
         return LoadedModel()
 
-    manager = ModelManager(loader=loader, torch_module=FakeTorch(False))
+    manager = ModelManager(
+        loader=loader,
+        torch_module=FakeTorch(False),
+        verifier=lambda _: "verified",
+    )
     first = manager.get_model(model_path)
     second = manager.get_model(model_path)
     assert first.model is second.model
@@ -68,6 +72,7 @@ def test_non_detection_model_is_rejected(tmp_path: Path) -> None:
     manager = ModelManager(
         loader=lambda _: classification_model,
         torch_module=FakeTorch(False),
+        verifier=lambda _: "verified",
     )
     with pytest.raises(DashboardError) as raised:
         manager.get_model(model_path)
@@ -78,6 +83,7 @@ def test_auto_and_explicit_device_resolution() -> None:
     gpu_manager = ModelManager(
         loader=lambda _: LoadedModel(),
         torch_module=FakeTorch(True),
+        verifier=lambda _: "verified",
     )
     assert gpu_manager.resolve_device(DeviceChoice.AUTO).argument == 0
     assert gpu_manager.resolve_device(DeviceChoice.GPU_0).argument == 0
@@ -86,6 +92,7 @@ def test_auto_and_explicit_device_resolution() -> None:
     cpu_manager = ModelManager(
         loader=lambda _: LoadedModel(),
         torch_module=FakeTorch(False),
+        verifier=lambda _: "verified",
     )
     assert cpu_manager.resolve_device(DeviceChoice.AUTO).argument == "cpu"
     with pytest.raises(DashboardError) as raised:

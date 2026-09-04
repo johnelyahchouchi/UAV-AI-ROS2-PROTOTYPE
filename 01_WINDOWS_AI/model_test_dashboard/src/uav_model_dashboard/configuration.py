@@ -58,7 +58,7 @@ def default_model_path(
         user_profile = values.get("USERPROFILE", "").strip()
         home = Path(user_profile) if user_profile else Path.home()
 
-    return home / "Desktop" / "UAV_MODELS" / "military_kaggle_v1.pt"
+    return repository_root() / "03_MODELS" / "active" / "detector" / "military_kaggle_v1.pt"
 
 
 def model_location_warning(model_path: Path, repo_root: Path | None = None) -> str | None:

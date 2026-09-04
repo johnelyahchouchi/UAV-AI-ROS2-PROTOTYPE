@@ -8,6 +8,7 @@ import time
 from collections import OrderedDict, deque
 from datetime import datetime
 from pathlib import Path
+import sys
 
 import cv2
 import numpy as np
@@ -15,6 +16,12 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from uav_security.csv_safe import sanitize_csv_row
 
 
 WINDOW_NAME = "UAV Tank Type Timeline Dashboard V1"
@@ -186,7 +193,7 @@ class UAVTankTypeTimelineDashboard(Node):
         self.csv_file = open(self.csv_path, "w", newline="", encoding="utf-8")
         self.csv_writer = csv.writer(self.csv_file)
 
-        self.csv_writer.writerow([
+        self.csv_writer.writerow(sanitize_csv_row([
             "timestamp",
             "mission_time_sec",
             "target_id",
@@ -196,7 +203,7 @@ class UAVTankTypeTimelineDashboard(Node):
             "threat_score",
             "threat_level",
             "event_type",
-        ])
+        ]))
 
         self.create_subscription(
             String,
@@ -231,7 +238,7 @@ class UAVTankTypeTimelineDashboard(Node):
 
         self.timeline_events.appendleft(event)
 
-        self.csv_writer.writerow([
+        self.csv_writer.writerow(sanitize_csv_row([
             datetime.now().isoformat(timespec="milliseconds"),
             round(mission_time, 3),
             target_id,
@@ -241,7 +248,7 @@ class UAVTankTypeTimelineDashboard(Node):
             round(threat_score, 2),
             threat_level,
             event_type,
-        ])
+        ]))
 
         self.csv_file.flush()
 

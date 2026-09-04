@@ -1,8 +1,10 @@
 import cv2
+import os
 from pathlib import Path
 
-INPUT_DIR = Path(r"C:\Users\UAVlab\Desktop\uav_ai_company\BTR.v1i.yolov8\test\images")
-OUTPUT_VIDEO = Path(r"C:\Users\UAVlab\Desktop\uav_ai_company\btr_demo.mp4")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+INPUT_DIR = Path(os.environ.get("UAV_BTR_IMAGE_DIR", PROJECT_ROOT / "04_DATASET_ENGINEERING" / "local_data" / "BTR" / "test" / "images"))
+OUTPUT_VIDEO = Path(os.environ.get("UAV_DEMO_VIDEO_OUT", PROJECT_ROOT / "08_OUTPUTS" / "btr_demo.mp4"))
 
 images = []
 for ext in ["*.jpg", "*.jpeg", "*.png"]:
