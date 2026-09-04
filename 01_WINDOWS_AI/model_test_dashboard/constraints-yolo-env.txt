@@ -2,6 +2,6 @@
 numpy==1.26.4
 matplotlib==3.8.4
 opencv-python==4.10.0.84
-ultralytics==8.4.107
+ultralytics==8.4.137
 torch==2.13.0+cu130
 torchvision==0.28.0+cu130
