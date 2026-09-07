@@ -58,7 +58,7 @@ The validated checkpoint was produced at:
 `/content/drive/MyDrive/UAV_MC_DROPOUT_V2/headonly_p020_lr1e4_e3/weights/best.pt`
 
 It was not available on this workstation during integration. Download that exact
-artifact to external model storage, for example
-`%USERPROFILE%\Desktop\UAV_MODELS\military_kaggle_v2_mcdo.pt`, independently verify
-its provenance and SHA-256, add the real digest and size to the trusted model registry,
-then set `UAV_MCDO_V2_MODEL_PATH`. Never substitute or rename V1 weights as V2.
+artifact to external model storage, independently verify its provenance and SHA-256,
+add the real digest and size to the trusted model registry, then set
+`UAV_MCDO_V2_MODEL_PATH` to its absolute path. Never substitute or rename V1 weights
+as V2.
