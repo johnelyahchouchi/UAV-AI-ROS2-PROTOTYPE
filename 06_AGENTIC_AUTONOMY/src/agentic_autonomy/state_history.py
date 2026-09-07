@@ -16,7 +16,12 @@ TRIGGER_ORDER = {value: index for index, value in enumerate(ReplanningTriggerTyp
 
 
 def load_mission_history(path: str | Path) -> MissionHistory:
-    raw = _object(_read_json(path, "mission state sequence"), "sequence")
+    return parse_mission_history(_read_json(path, "mission state sequence"))
+
+
+def parse_mission_history(value: object) -> MissionHistory:
+    """Parse and validate an in-memory Phase 2 mission-state sequence."""
+    raw = _object(value, "sequence")
     _keys(raw, SEQUENCE_KEYS, SEQUENCE_KEYS, "sequence")
     version = _string(raw["schema_version"], "sequence.schema_version")
     if version != "2.0":
