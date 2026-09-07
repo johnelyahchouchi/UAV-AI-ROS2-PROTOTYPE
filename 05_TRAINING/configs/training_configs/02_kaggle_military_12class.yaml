@@ -1,4 +1,4 @@
-path: C:/uav_datasets_master/02_kaggle_military_12class
+path: <external-dataset-root>/02_kaggle_military_12class
 train: train/images
 val: val/images
 test: test/images

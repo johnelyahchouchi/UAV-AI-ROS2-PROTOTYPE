@@ -1,57 +1,36 @@
-﻿# 10 - Development Roadmap
+# 10 - Development Roadmap
 
-## Overview
+## Implemented foundation
 
-The current implementation establishes a complete AI perception pipeline capable of detecting, tracking and distributing object information within a ROS 2 environment.
+- trusted YOLO model loading, Windows detection/tracking, and existing threat metadata;
+- authenticated bounded Windows-to-ROS protocol v2;
+- local recorded and live/video test paths;
+- on-demand V1 input-perturbation robustness inspection;
+- validated V2 MC Dropout runtime extraction and on-demand selector, gated by an
+  external trusted checkpoint;
+- three role-based ROS dashboard views;
+- deterministic simulation-first Mission Copilot recommendations and replanning.
 
-The modular architecture was intentionally designed to simplify future improvements. As new algorithms, sensors or robotic capabilities become available, they can be integrated with minimal impact on the existing software components.
+## Near-term validation
 
-The following roadmap outlines potential directions for future development.
+1. Deploy the renamed bridge/dashboard nodes to the real Ubuntu workspace and regenerate
+   matching SROS2 enclaves.
+2. Run the live presentation checklist with the external allowlisted model on the target
+   GPU and record representative clear/difficult/negative-control observations.
+3. Keep the lightweight live, uncertainty, dashboard, and security CI green while
+   adding optional artifact-driven GPU/model smoke tests outside normal source Git.
+4. Remove the bridge's temporary BTR label-rewrite option only after confirming deployment
+   consumers and preserving required behavior.
 
----
+## Research extensions
 
-## Improved AI Models
+- Validate V1 thresholds across curated datasets and resolutions.
+- Retrieve and independently hash the exact Colab V2 checkpoint, enroll it in the trust
+  registry, verify its six forward-connected dropout placements, and complete the real
+  GPU/video smoke workflow without changing the validated architecture.
+- Add future ROS 2/event-camera adapters around, rather than inside, the deterministic
+  Mission Copilot core.
+- Evaluate tracking under occlusion, multi-UAV scaling, sensor fusion, and deployment
+  acceleration without changing the current safety boundaries.
 
-Future work may focus on training larger and more specialized detection models using expanded datasets containing additional vehicle categories, environmental conditions and imaging perspectives.
-
-Model optimization techniques such as TensorRT or ONNX Runtime acceleration could also be incorporated to improve inference performance on embedded hardware.
-
----
-
-## Enhanced Threat Assessment
-
-The current rule-based threat evaluation module could be replaced by more advanced decision-making algorithms.
-
-Future implementations may consider object motion, trajectory prediction, mission objectives and information from multiple sensors to generate more accurate threat assessments.
-
----
-
-## Multi-UAV Support
-
-Although the current prototype demonstrates the perception pipeline using a limited number of UAVs, the architecture can be extended to support larger UAV fleets.
-
-Future developments may include coordinated perception, shared target tracking and collaborative decision-making between multiple aerial platforms.
-
----
-
-## Sensor Fusion
-
-Future versions of the system may combine camera data with additional sensors such as LiDAR, radar, thermal cameras or GNSS information.
-
-Combining multiple sensing modalities would improve perception robustness in challenging environments where a single sensor may not provide sufficient information.
-
----
-
-## Autonomous Behaviors
-
-The perception pipeline can serve as the foundation for higher-level autonomous capabilities.
-
-Future robotic modules could use the published perception data for autonomous navigation, target following, obstacle avoidance or mission planning without requiring modifications to the perception system itself.
-
----
-
-## Conclusion
-
-The project demonstrates a modular architecture that separates perception, communication and robotic integration into independent software components.
-
-This design allows future improvements to be incorporated incrementally while preserving the overall system architecture, providing a flexible foundation for continued research and development.
+Nothing in this roadmap implies autonomous flight authorization or safety certification.

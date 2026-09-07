@@ -72,3 +72,18 @@ Future developments may include improved detection models, advanced threat asses
   until a coordinated manual history rewrite is performed.
 - The ROS 2 mirror is not the live Ubuntu workspace. Hardened bridge/shared files
   must be deployed to the real workspace together and validated there.
+- Model weights, datasets, videos, TLS identities, and SROS2 keystores are external;
+  a fresh checkout cannot run real inference or a deployed bridge without them.
+- V1 reports robustness to the configured mild input perturbations only. Matching can
+  split/merge targets in crowded scenes, pixel variation depends on resolution, and
+  conditional confidence/class/localization statistics must be read with persistence.
+- The `STABLE`, `INPUT-SENSITIVE`, and `UNSTABLE / REVIEW` bands are presentation
+  thresholds for observed persistence, not accuracy or probability estimates.
+- The V2 MC Dropout runtime is implemented from the validated notebook, but the exact
+  trained external checkpoint was not present during integration. Until its provenance,
+  hash, six dropout placements, and real stochastic output are verified, V2 remains
+  unavailable. Repeated deterministic calls or V1 weights are not substitutes.
+- MC Dropout output is an approximate model/epistemic uncertainty probe, not a calibrated
+  correctness probability. Greedy IoU clustering can split or merge nearby objects.
+- The bridge retains a temporary configurable BTR label rewrite for compatibility. It
+  should be removed only after deployment consumers are audited.

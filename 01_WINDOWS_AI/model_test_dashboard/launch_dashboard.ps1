@@ -59,7 +59,7 @@ if numpy.__version__.split('.')[0] != '1':
 if torch.cuda.is_available():
     print("GPU 0:", torch.cuda.get_device_name(0))
 else:
-    raise SystemExit("CUDA is not available in the dedicated UAV YOLO environment.")
+    print("CUDA unavailable: the dashboard's Auto device will use CPU.")
 '@
 
 $verificationCode | & $PythonExe -

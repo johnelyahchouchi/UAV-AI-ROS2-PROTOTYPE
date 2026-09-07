@@ -1,4 +1,4 @@
-﻿path: C:/uav_datasets_master/05_amad5_aerial_military_5class_clean
+﻿path: <external-dataset-root>/05_amad5_aerial_military_5class_clean
 
 train: train/images
 val: val/images

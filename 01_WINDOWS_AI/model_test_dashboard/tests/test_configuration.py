@@ -23,10 +23,9 @@ def test_default_model_path_uses_environment_override() -> None:
     assert result == Path(r"D:\models\custom.pt")
 
 
-def test_default_model_path_is_repository_relative_not_workstation_relative() -> None:
+def test_default_model_path_is_empty_without_external_configuration() -> None:
     result = default_model_path({"USERPROFILE": r"D:\Profile"})
-    assert result.parts[-4:] == ("03_MODELS", "active", "detector", "military_kaggle_v1.pt")
-    assert r"D:\Profile" not in str(result)
+    assert result is None
 
 
 def test_processing_settings_defaults_and_valid_values() -> None:

@@ -158,7 +158,7 @@ def build_app() -> gr.Blocks:
             with gr.Column(scale=2):
                 model_path = gr.Textbox(
                     label="YOLO model path",
-                    value=str(default_model_path()),
+                    value=str(default_model_path() or ""),
                 )
                 model_upload = gr.File(
                     label="Browse for another .pt model",

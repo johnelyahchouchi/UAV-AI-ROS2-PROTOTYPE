@@ -1,49 +1,40 @@
-# 08 - Testing & Validation
+# 08 - Testing and Validation
 
-## Overview
+Automated tests are separated by dependency boundary.
 
-Testing was performed throughout the development process to verify the functionality, reliability and integration of each component within the perception pipeline.
+```powershell
+# Shared security, live tester, V1 uncertainty, and static dashboard tests
+py -3.11 -m pytest -q .\tests
 
-Rather than evaluating only the object detection model, the validation process covered the complete system, including AI inference, object tracking, TCP communication, ROS 2 integration and operator visualization.
+# Recorded model-test dashboard (controlled YOLO environment)
+Push-Location .\01_WINDOWS_AI\model_test_dashboard
+$env:PYTHONPATH = (Join-Path $PWD "src")
+& $env:UAV_YOLO_PYTHON -m pytest -q
+Pop-Location
 
-This approach ensured that each subsystem functioned correctly both individually and as part of the overall architecture.
+# Simulation-first Mission Copilot
+Push-Location .\06_AGENTIC_AUTONOMY
+py -3.11 -m pytest -q
+Pop-Location
+```
 
----
+The root suites cover configuration/path validation, input and URL validation, model
+integrity, safe ZIP/CSV/image handling, TLS transport, live source/region/device behavior,
+one-pass normal processing, exact-frame `U` inspection, V1 perturbations/matching/metrics,
+V2 architecture and inference-state enforcement, 20-pass clustering/competition metrics,
+selector/failure recovery, and static ROS dashboard source expectations. Fake models,
+fake detectors, and synthetic media avoid
+model, GPU, network, camera, ROS 2, and UAV dependencies.
 
-## Model Validation
+Repository-wide `compileall`, PowerShell parser checks, JSON/YAML parsing, Markdown-link
+checks, launcher `--help` checks, private-key scans, dependency checks, and the configured
+Bandit/pip-audit CI provide additional validation.
 
-Before deployment, each trained model was evaluated using the validation tools provided by the Ultralytics framework.
+## Manual validation still required
 
-Performance metrics such as precision, recall and mean Average Precision (mAP) were monitored throughout training to assess detection accuracy and identify opportunities for improvement.
-
-Models that demonstrated stable performance were exported and integrated into the operational pipeline.
-
----
-
-## Integration Testing
-
-After deployment, the interaction between the Windows AI application and the Ubuntu ROS 2 environment was verified.
-
-Testing confirmed that detection results were correctly transmitted over TCP, reconstructed by the ROS 2 bridge and successfully published as ROS 2 topics for downstream applications.
-
-This stage ensured that communication between software components remained reliable under normal operating conditions.
-
----
-
-## System Validation
-
-The complete perception pipeline was tested using recorded video streams and live camera feeds.
-
-Validation focused on confirming that objects were detected, tracked consistently, assigned threat information and displayed correctly on the operator dashboards.
-
-These tests verified the correct operation of the complete perception workflow from image acquisition to visualization.
-
----
-
-## Continuous Testing
-
-Testing was performed continuously throughout development.
-
-Every significant modification to the AI models, communication protocol or ROS 2 integration was verified before being incorporated into the final prototype.
-
-This iterative validation process reduced integration issues and improved the overall stability of the system.
+Automated tests do not establish detector accuracy, flight safety, ROS 2 deployment
+correctness, SROS2 policy correctness, or real-time performance. Before a presentation,
+use the external allowlisted checkpoint and operator-selected video to run the checklist
+in `LIVE_SCREEN_MODEL_TESTER.md`. V2 additionally needs the exact trained checkpoint and
+a real stochastic GPU smoke test. Validate the sender/bridge/dashboards separately on
+the actual Ubuntu ROS 2 deployment.

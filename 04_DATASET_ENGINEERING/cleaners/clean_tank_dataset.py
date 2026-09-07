@@ -46,7 +46,7 @@ for split in splits:
             if cleaned_lines:
                 f.write("\n".join(cleaned_lines) + "\n")
 
-data_yaml = """path: C:/rf_datasets/tank_clean
+data_yaml = f"""path: {DST.resolve().as_posix()}
 train: train/images
 val: valid/images
 test: test/images

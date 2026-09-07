@@ -25,8 +25,13 @@ from .video_processor import ProcessingRequest, VideoProcessor
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
+    configured_model = default_model_path()
     parser.add_argument("--video", required=True)
-    parser.add_argument("--model", default=str(default_model_path()))
+    parser.add_argument(
+        "--model",
+        default=str(configured_model) if configured_model else None,
+        required=configured_model is None,
+    )
     parser.add_argument("--mode", choices=["detection", "botsort"], required=True)
     parser.add_argument("--conf", type=float, default=0.50)
     parser.add_argument("--iou", type=float, default=0.45)

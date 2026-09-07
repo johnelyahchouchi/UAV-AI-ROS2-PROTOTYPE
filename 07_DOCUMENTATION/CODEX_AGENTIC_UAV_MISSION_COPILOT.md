@@ -1,5 +1,9 @@
 # Agentic UAV Mission Copilot — Codex Project Context and Implementation Plan
 
+> Historical planning note: this document records the context used to introduce the
+> Mission Copilot. For the current application inventory and commands, use the root
+> `README.md`, `01_WINDOWS_AI/apps/README.md`, and `06_AGENTIC_AUTONOMY/README.md`.
+
 ## 1. Why this document exists
 
 This document gives Codex enough context to work safely and intelligently on the repository:
@@ -32,23 +36,26 @@ Video source
 Known important files:
 
 ```text
-01_WINDOWS_AI/apps/live_yolo_stream.py
-01_WINDOWS_AI/apps/make_btr_demo_video.py
 01_WINDOWS_AI/apps/uav_ai_control_panel.py
+01_WINDOWS_AI/apps/live_screen_model_tester.py
 01_WINDOWS_AI/apps/win_yolo_tcp_sender_botsort_threat.py
 01_WINDOWS_AI/apps/win_yolo_tcp_sender_botsort_threat_BASELINE.py
 ```
 
-Known launcher files include:
+Canonical sender launchers:
 
 ```text
-01_WINDOWS_AI/launchers/Start_Clean_Baseline.ps1
-01_WINDOWS_AI/launchers/Start_UAV_AI_Control_Panel.bat
 01_WINDOWS_AI/launchers/Start_UAV_Windows_Sender.bat
 01_WINDOWS_AI/launchers/start_yolo_sender.ps1
-01_WINDOWS_AI/launchers/start_yolo_sender_full_menu.ps1
-01_WINDOWS_AI/launchers/start_yolo_sender_menu.ps1
 ```
+
+The BAT file is the double-click wrapper for the parameterized PowerShell launcher.
+The control panel can be started directly with the verified Python interpreter if it
+is needed for legacy sender operation.
+
+The former standalone remote-stream demo was retired because maintained sender and
+live-tester paths cover the supported workflows. The BTR demo-video generator now
+lives under `01_WINDOWS_AI/tools/media/`.
 
 The active sender previously loaded video, YOLO, and BoT-SORT successfully. Model weights are intentionally kept outside Git. Codex must not add weights to the repository.
 

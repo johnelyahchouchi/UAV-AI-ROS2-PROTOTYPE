@@ -360,6 +360,18 @@ def test_performance_tracker_uses_rolling_averages_and_displayed_interval() -> N
     assert metrics.fps == pytest.approx(1 / 0.15)
 
 
+def test_performance_tracker_excludes_pause_from_resumed_fps() -> None:
+    tracker = tester.PerformanceTracker(window_size=3)
+    tracker.record(capture_ms=1, inference_ms=1, total_ms=2, frame_timestamp=1.0)
+    tracker.record(capture_ms=1, inference_ms=1, total_ms=2, frame_timestamp=1.1)
+    tracker.reset_interval()
+    resumed = tracker.record(
+        capture_ms=1, inference_ms=1, total_ms=2, frame_timestamp=100.0
+    )
+
+    assert resumed.fps == pytest.approx(10.0)
+
+
 @pytest.mark.parametrize(
     ("coordinates", "expected"),
     [
@@ -391,7 +403,10 @@ def test_screenshot_paths_are_created_and_never_reused(tmp_path: Path) -> None:
 
 def test_frame_processor_accepts_fake_frame_detector_and_renderer() -> None:
     class FakeDetector:
+        calls = 0
+
         def detect(self, frame):
+            self.calls += 1
             assert frame == "fake-frame"
             return [tester.DetectionResult(0, "military_tank", 0.95, (1, 1, 4, 4))]
 
@@ -425,6 +440,7 @@ def test_frame_processor_accepts_fake_frame_detector_and_renderer() -> None:
     assert outcome.annotated_frame == {"frame": "fake-frame", "count": 1, "hud": 1}
     assert outcome.metrics.inference_ms == pytest.approx(10.0)
     assert outcome.metrics.total_ms == pytest.approx(20.0)
+    assert processor.detector.calls == 1
 
 
 def test_yolo_detector_verifies_before_loading(tmp_path: Path) -> None:
@@ -481,11 +497,632 @@ def test_batch_launcher_is_dynamic_and_opens_video_picker() -> None:
     assert "UAV_YOLO_PYTHON" in content
     assert "UAV_MODEL_PATH" in content
     assert "..\\UAV_YOLO_ENV\\Scripts\\python.exe" in content
-    assert (
-        "05_TRAINING\\detection_runs\\military_kaggle_yolov8s_v1"
-        "\\weights\\best.pt"
-    ) in content
+    assert "weights\\best.pt" not in content
     assert "powershell.exe" not in content.lower()
     assert "-ExecutionPolicy Bypass" not in content
     assert "C:\\Users\\" not in content
     assert "OneDrive" not in content
+
+
+def test_u_key_inspects_a_copy_of_exact_current_frame_and_resume_continues(
+    tmp_path: Path,
+) -> None:
+    import numpy as np
+
+    original = np.full((12, 16, 3), 77, dtype=np.uint8)
+
+    class FakeSource:
+        metadata = tester.VideoMetadata(tmp_path / "video.mp4", 16, 12, 30.0, 2)
+        reads = 0
+
+        def __enter__(self):
+            return self
+
+        def read(self):
+            self.reads += 1
+            return original.copy()
+
+        def __exit__(self, *args):
+            return None
+
+    class FakeRenderer:
+        def draw_hud(self, frame, **kwargs):
+            return frame
+
+    class FakeProcessor:
+        region = tester.CaptureRegion(0, 0, 16, 12)
+        renderer = FakeRenderer()
+        tracker = tester.PerformanceTracker()
+        model_name = "best.pt"
+        device = "CPU"
+        source_label = "video.mp4"
+        last_inspection = None
+        calls = 0
+
+        def process(self, frame, **kwargs):
+            self.calls += 1
+            return tester.FrameOutcome(frame.copy(), (), tester.FrameMetrics())
+
+    class FakeInspection:
+        def __init__(self, frame):
+            self.frame = frame
+            self.status = "STABLE IN V1 TEST"
+
+    class FakeInspector:
+        inspected = None
+        received_before_mutation = None
+
+        def render_working(self, exact_frame):
+            return exact_frame.copy()
+
+        def inspect(self, exact_frame):
+            self.inspected = exact_frame
+            self.received_before_mutation = exact_frame.copy()
+            exact_frame[0, 0, 0] = 255
+            return FakeInspection(exact_frame.copy())
+
+    class FakeCV2:
+        WINDOW_NORMAL = 0
+        WND_PROP_VISIBLE = 1
+        keys = iter((ord("u"), -1, ord("p"), ord("q")))
+
+        @staticmethod
+        def namedWindow(*args):
+            return None
+
+        @staticmethod
+        def resizeWindow(*args):
+            return None
+
+        @staticmethod
+        def imshow(*args):
+            return None
+
+        @classmethod
+        def waitKey(cls, *args):
+            return next(cls.keys)
+
+        @staticmethod
+        def getWindowProperty(*args):
+            return 1
+
+        @staticmethod
+        def destroyAllWindows():
+            return None
+
+    counter = iter(index / 1000 for index in range(100))
+    source = FakeSource()
+    inspector = FakeInspector()
+    processor = FakeProcessor()
+    tester.run_video_preview(
+        source,
+        processor,
+        tester.ScreenshotStore(tmp_path),
+        max_fps=0,
+        cv2_module=FakeCV2,
+        uncertainty_inspector=inspector,
+        clock=lambda: next(counter),
+        sleeper=lambda delay: None,
+    )
+
+    assert source.reads == 2
+    assert processor.calls == 2
+    assert inspector.inspected is not original
+    assert np.array_equal(inspector.received_before_mutation, original)
+    assert int(original[0, 0, 0]) == 77
+    assert processor.last_inspection == "STABLE IN V1 TEST"
+
+
+def test_inspection_failure_stays_paused_until_resume_and_replaces_stale_status(
+    tmp_path: Path,
+) -> None:
+    import numpy as np
+
+    frame = np.zeros((8, 8, 3), dtype=np.uint8)
+
+    class FakeSource:
+        metadata = tester.VideoMetadata(tmp_path / "video.mp4", 8, 8, 30.0, 2)
+        reads = 0
+
+        def __enter__(self):
+            return self
+
+        def read(self):
+            self.reads += 1
+            return frame.copy()
+
+        def __exit__(self, *args):
+            return None
+
+    class FakeRenderer:
+        def draw_hud(self, image, **kwargs):
+            return image
+
+    class FakeProcessor:
+        region = tester.CaptureRegion(0, 0, 8, 8)
+        renderer = FakeRenderer()
+        tracker = tester.PerformanceTracker()
+        model_name = "best.pt"
+        device = "CPU"
+        source_label = "video.mp4"
+        last_inspection = "OLD STATUS"
+
+        def process(self, image, **kwargs):
+            return tester.FrameOutcome(image.copy(), (), tester.FrameMetrics())
+
+    class FailingInspector:
+        def render_working(self, image):
+            return image.copy()
+
+        def inspect(self, image):
+            raise RuntimeError("expected failure")
+
+    class FakeCV2:
+        WINDOW_NORMAL = 0
+        WND_PROP_VISIBLE = 1
+        keys = iter((ord("u"), -1, ord("p"), ord("q")))
+
+        @staticmethod
+        def namedWindow(*args):
+            return None
+
+        @staticmethod
+        def resizeWindow(*args):
+            return None
+
+        @staticmethod
+        def imshow(*args):
+            return None
+
+        @classmethod
+        def waitKey(cls, *args):
+            return next(cls.keys)
+
+        @staticmethod
+        def getWindowProperty(*args):
+            return 1
+
+        @staticmethod
+        def destroyAllWindows():
+            return None
+
+    source = FakeSource()
+    processor = FakeProcessor()
+    counter = iter(index / 1000 for index in range(100))
+    tester.run_video_preview(
+        source,
+        processor,
+        tester.ScreenshotStore(tmp_path),
+        max_fps=0,
+        cv2_module=FakeCV2,
+        uncertainty_inspector=FailingInspector(),
+        clock=lambda: next(counter),
+        sleeper=lambda delay: None,
+    )
+
+    assert source.reads == 2
+    assert processor.last_inspection == "INSPECTION FAILED"
+
+
+def test_inspection_panel_expands_and_renders_box_size_variation() -> None:
+    import cv2
+    import numpy as np
+
+    class ThreeTargetDetector:
+        calls = 0
+
+        def detect(self, image):
+            self.calls += 1
+            return [
+                tester.DetectionResult(
+                    index,
+                    f"class_{index}",
+                    0.8,
+                    (5 + 30 * index, 5, 25 + 30 * index, 25),
+                )
+                for index in range(3)
+            ]
+
+    detector = ThreeTargetDetector()
+    inspector = tester.RobustnessInspector(
+        detector, cv2_module=cv2, sample_count=2, seed=7
+    )
+    rendered_text: list[str] = []
+    original_text = inspector._text
+
+    def record_text(image, text, *args, **kwargs):
+        rendered_text.append(text)
+        return original_text(image, text, *args, **kwargs)
+
+    inspector._text = record_text
+    view = inspector.inspect(np.full((80, 120, 3), 127, dtype=np.uint8))
+
+    assert detector.calls == 3
+    assert view.frame.shape[0] > 760
+    assert sum(text.startswith("Box std: size") for text in rendered_text) == 3
+
+
+def test_live_entrypoint_is_thin_and_delegates_to_package() -> None:
+    entrypoint = PROJECT_ROOT / "01_WINDOWS_AI" / "apps" / "live_screen_model_tester.py"
+    content = entrypoint.read_text(encoding="utf-8")
+
+    assert len(content.splitlines()) < 30
+    assert "from live_tester import main" in content
+
+
+def test_resolve_optional_v2_model_path_uses_cli_then_environment(tmp_path: Path) -> None:
+    cli_model = tmp_path / "cli-v2.pt"
+    env_model = tmp_path / "env-v2.pt"
+    cli_model.touch()
+    env_model.touch()
+
+    assert tester.resolve_mcdo_v2_model_path(None, {}) is None
+    assert (
+        tester.resolve_mcdo_v2_model_path(
+            str(cli_model), {"UAV_MCDO_V2_MODEL_PATH": str(env_model)}
+        )
+        == cli_model.resolve()
+    )
+    assert (
+        tester.resolve_mcdo_v2_model_path(
+            None, {"UAV_MCDO_V2_MODEL_PATH": str(env_model)}
+        )
+        == env_model.resolve()
+    )
+    with pytest.raises(tester.TesterError, match="does not exist"):
+        tester.resolve_mcdo_v2_model_path(str(tmp_path / "missing.pt"), {})
+
+
+@pytest.mark.parametrize(
+    ("selection_key", "expected_v1_calls", "expected_v2_calls"),
+    [(ord("1"), 1, 0), (ord("2"), 0, 1)],
+)
+def test_uncertainty_method_selector_uses_one_frozen_frame(
+    tmp_path: Path,
+    selection_key: int,
+    expected_v1_calls: int,
+    expected_v2_calls: int,
+) -> None:
+    import numpy as np
+
+    original = np.full((12, 16, 3), 61, dtype=np.uint8)
+
+    class FakeSource:
+        metadata = tester.VideoMetadata(tmp_path / "video.mp4", 16, 12, 30.0, 2)
+
+        def __init__(self):
+            self.reads = 0
+
+        def __enter__(self):
+            return self
+
+        def read(self):
+            self.reads += 1
+            return original.copy()
+
+        def __exit__(self, *args):
+            return None
+
+    class FakeRenderer:
+        def draw_hud(self, frame, **kwargs):
+            return frame
+
+    class FakeProcessor:
+        region = tester.CaptureRegion(0, 0, 16, 12)
+        renderer = FakeRenderer()
+        tracker = tester.PerformanceTracker()
+        model_name = "normal-v1.pt"
+        device = "CPU"
+        source_label = "video.mp4"
+        last_inspection = None
+        uncertainty_available = True
+        mcdo_v2_available = True
+
+        def __init__(self):
+            self.calls = 0
+
+        def process(self, frame, **kwargs):
+            self.calls += 1
+            return tester.FrameOutcome(frame.copy(), (), tester.FrameMetrics())
+
+    class FakeView:
+        status = "TEST METHOD COMPLETE"
+
+        def __init__(self, frame):
+            self.frame = frame.copy()
+
+    class FakeV1Inspector:
+        def __init__(self):
+            self.calls = 0
+            self.selection_pixels = None
+            self.inspection_pixels = None
+
+        def render_selection(self, frame, *, v2_sample_count):
+            assert v2_sample_count == 20
+            self.selection_pixels = frame.copy()
+            return frame.copy()
+
+        def render_working(self, frame):
+            return frame.copy()
+
+        def inspect(self, frame):
+            self.calls += 1
+            self.inspection_pixels = frame.copy()
+            frame[0, 0, 0] = 255
+            return FakeView(frame)
+
+    class FakeV2Inspector:
+        class Config:
+            sample_count = 20
+
+        config = Config()
+
+        def __init__(self):
+            self.calls = 0
+            self.inspection_pixels = None
+
+        def render_working(self, frame):
+            return frame.copy()
+
+        def inspect(self, frame):
+            self.calls += 1
+            self.inspection_pixels = frame.copy()
+            frame[0, 0, 1] = 255
+            return FakeView(frame)
+
+    class FakeCV2:
+        WINDOW_NORMAL = 0
+        WND_PROP_VISIBLE = 1
+        keys = iter((ord("u"), selection_key, -1, ord("p"), ord("q")))
+
+        @staticmethod
+        def namedWindow(*args):
+            return None
+
+        @staticmethod
+        def resizeWindow(*args):
+            return None
+
+        @staticmethod
+        def imshow(*args):
+            return None
+
+        @classmethod
+        def waitKey(cls, *args):
+            return next(cls.keys)
+
+        @staticmethod
+        def getWindowProperty(*args):
+            return 1
+
+        @staticmethod
+        def destroyAllWindows():
+            return None
+
+    source = FakeSource()
+    processor = FakeProcessor()
+    v1 = FakeV1Inspector()
+    v2 = FakeV2Inspector()
+    timestamps = iter(index / 1000 for index in range(100))
+
+    tester.run_video_preview(
+        source,
+        processor,
+        tester.ScreenshotStore(tmp_path),
+        max_fps=0,
+        cv2_module=FakeCV2,
+        uncertainty_inspector=v1,
+        mcdo_v2_inspector=v2,
+        clock=lambda: next(timestamps),
+        sleeper=lambda delay: None,
+    )
+
+    assert source.reads == 2
+    assert processor.calls == 2  # one normal inference per displayed playback frame
+    assert v1.calls == expected_v1_calls
+    assert v2.calls == expected_v2_calls
+    assert np.array_equal(v1.selection_pixels, original)
+    selected_pixels = v1.inspection_pixels if expected_v1_calls else v2.inspection_pixels
+    assert np.array_equal(selected_pixels, original)
+    assert np.array_equal(original, np.full_like(original, 61))
+
+
+def test_v2_failure_keeps_session_alive_and_resume_resets_timing(tmp_path: Path) -> None:
+    import numpy as np
+
+    frame = np.zeros((8, 8, 3), dtype=np.uint8)
+
+    class FakeSource:
+        metadata = tester.VideoMetadata(tmp_path / "video.mp4", 8, 8, 30.0, 2)
+
+        def __init__(self):
+            self.reads = 0
+
+        def __enter__(self):
+            return self
+
+        def read(self):
+            self.reads += 1
+            return frame.copy()
+
+        def __exit__(self, *args):
+            return None
+
+    class RecordingTracker(tester.PerformanceTracker):
+        def __init__(self):
+            super().__init__()
+            self.resets = 0
+
+        def reset_interval(self):
+            self.resets += 1
+            super().reset_interval()
+
+    class FakeRenderer:
+        def draw_hud(self, image, **kwargs):
+            return image
+
+    class FakeProcessor:
+        region = tester.CaptureRegion(0, 0, 8, 8)
+        renderer = FakeRenderer()
+        tracker = RecordingTracker()
+        model_name = "normal-v1.pt"
+        device = "CPU"
+        source_label = "video.mp4"
+        last_inspection = None
+
+        def process(self, image, **kwargs):
+            return tester.FrameOutcome(image.copy(), (), tester.FrameMetrics())
+
+    class V1:
+        def render_selection(self, image, *, v2_sample_count):
+            return image.copy()
+
+        def render_working(self, image):
+            return image.copy()
+
+        def inspect(self, image):
+            raise AssertionError("V1 must not be selected")
+
+    class FailingV2:
+        class Config:
+            sample_count = 20
+
+        config = Config()
+
+        def render_working(self, image):
+            return image.copy()
+
+        def inspect(self, image):
+            raise RuntimeError("expected V2 failure")
+
+    class FakeCV2:
+        WINDOW_NORMAL = 0
+        WND_PROP_VISIBLE = 1
+        keys = iter((ord("u"), ord("2"), -1, ord("p"), ord("q")))
+
+        namedWindow = staticmethod(lambda *args: None)
+        resizeWindow = staticmethod(lambda *args: None)
+        imshow = staticmethod(lambda *args: None)
+        getWindowProperty = staticmethod(lambda *args: 1)
+        destroyAllWindows = staticmethod(lambda: None)
+
+        @classmethod
+        def waitKey(cls, *args):
+            return next(cls.keys)
+
+    source = FakeSource()
+    processor = FakeProcessor()
+    timestamps = iter(index / 1000 for index in range(100))
+
+    tester.run_video_preview(
+        source,
+        processor,
+        tester.ScreenshotStore(tmp_path),
+        max_fps=0,
+        cv2_module=FakeCV2,
+        uncertainty_inspector=V1(),
+        mcdo_v2_inspector=FailingV2(),
+        clock=lambda: next(timestamps),
+        sleeper=lambda delay: None,
+    )
+
+    assert source.reads == 2
+    assert processor.last_inspection == "V2 INSPECTION FAILED"
+    assert processor.tracker.resets == 1
+
+
+def test_hud_advertises_v2_selector_only_when_v2_is_available() -> None:
+    import numpy as np
+
+    class FakeCV2:
+        FONT_HERSHEY_SIMPLEX = 0
+        LINE_AA = 0
+        text: list[str] = []
+
+        rectangle = staticmethod(lambda *args: None)
+        addWeighted = staticmethod(lambda *args: None)
+
+        @classmethod
+        def putText(cls, image, text, *args):
+            cls.text.append(text)
+
+    renderer = tester.OverlayRenderer(FakeCV2)
+    image = np.zeros((200, 1000, 3), dtype=np.uint8)
+    common = dict(
+        metrics=tester.FrameMetrics(),
+        model_name="normal-v1.pt",
+        region=tester.CaptureRegion(0, 0, 1000, 200),
+        device="CPU",
+        detection_count=0,
+        uncertainty_available=True,
+    )
+
+    renderer.draw_hud(image.copy(), **common, mcdo_v2_available=False)
+    assert any("U inspect V1 robustness" in line for line in FakeCV2.text)
+    assert not any("uncertainty menu" in line for line in FakeCV2.text)
+
+    FakeCV2.text.clear()
+    renderer.draw_hud(image.copy(), **common, mcdo_v2_available=True)
+    assert any("uncertainty menu (1 V1 / 2 V2)" in line for line in FakeCV2.text)
+
+
+def test_v2_panel_reserves_space_for_competing_class_rows() -> None:
+    import numpy as np
+
+    from uav_uncertainty.detection import Detection
+    from uav_uncertainty.mc_dropout_v2 import MCDOV2Config
+
+    outputs = [
+        [
+            Detection(
+                index,
+                f"class_{index}",
+                0.9 - index * 0.05,
+                (10.0 + index * 0.1, 10.0, 40.0 + index * 0.1, 40.0),
+            )
+            for index in range(6)
+        ]
+    ]
+
+    class Session:
+        def detect_pass(self):
+            return outputs[0]
+
+    class Runner:
+        model_sha256 = "a" * 64
+
+        def prepare(self, exact_frame):
+            return Session()
+
+    class FakeCV2:
+        FONT_HERSHEY_SIMPLEX = 0
+        LINE_AA = 0
+        text_rows: dict[str, int] = {}
+
+        rectangle = staticmethod(lambda *args: None)
+        addWeighted = staticmethod(lambda *args: None)
+        line = staticmethod(lambda *args: None)
+
+        @staticmethod
+        def resize(image, size):
+            return np.zeros((size[1], size[0], 3), dtype=np.uint8)
+
+        @classmethod
+        def putText(cls, image, text, position, *args):
+            cls.text_rows[text] = position[1]
+
+    inspector = tester.MCDOV2LiveInspector(
+        Runner(), cv2_module=FakeCV2, config=MCDOV2Config(sample_count=2)
+    )
+    view = inspector.inspect(np.zeros((80, 120, 3), dtype=np.uint8))
+
+    footer_y = FakeCV2.text_rows[
+        "P / U / SPACE resume | S saves this inspection | Q exits"
+    ]
+    evidence_y = next(
+        row
+        for text, row in FakeCV2.text_rows.items()
+        if text.startswith("Evidence entropy:")
+    )
+    assert view.frame.shape[0] >= 820
+    assert evidence_y < footer_y - 30

@@ -6,6 +6,10 @@ Branch: `security/repository-hardening`
 
 Base commit: `15cf943`
 
+> This is a historical change report. File names listed later are the paths that were
+> reviewed on that branch; current canonical launchers and dashboards are documented in
+> the root README and may have different names.
+
 No push, merge, release, remote-branch change, history rewrite, force operation,
 working-tree cleanup, or model/dataset deletion was performed.
 
@@ -157,18 +161,14 @@ Repository controls and documentation:
 
 Transport, launch, dashboard, and model-loading integrations:
 
-- `01_WINDOWS_AI/apps/live_yolo_stream.py`
-- `01_WINDOWS_AI/apps/make_btr_demo_video.py`
+- `01_WINDOWS_AI/apps/live_screen_model_tester.py`
 - `01_WINDOWS_AI/apps/uav_ai_control_panel.py`
 - `01_WINDOWS_AI/apps/win_yolo_tcp_sender_botsort_threat.py`
 - `01_WINDOWS_AI/apps/win_yolo_tcp_sender_botsort_threat_BASELINE.py`
-- `01_WINDOWS_AI/launchers/Start_Clean_Baseline.ps1`
+- `01_WINDOWS_AI/launchers/Start_Live_Screen_Tester.bat`
 - `01_WINDOWS_AI/launchers/Start_UAV_AI_Control_Panel.bat`
 - `01_WINDOWS_AI/launchers/Start_UAV_Windows_Sender.bat`
-- `01_WINDOWS_AI/launchers/start_btr_phase1_conf45.ps1`
 - `01_WINDOWS_AI/launchers/start_yolo_sender.ps1`
-- `01_WINDOWS_AI/launchers/start_yolo_sender_full_menu.ps1`
-- `01_WINDOWS_AI/launchers/start_yolo_sender_menu.ps1`
 - `01_WINDOWS_AI/model_test_dashboard/README.md`
 - `01_WINDOWS_AI/model_test_dashboard/launch_dashboard.ps1`
 - `01_WINDOWS_AI/model_test_dashboard/requirements.txt`
@@ -181,12 +181,13 @@ Transport, launch, dashboard, and model-loading integrations:
 - `01_WINDOWS_AI/model_test_dashboard/tests/test_model_manager.py`
 - `01_WINDOWS_AI/model_test_dashboard/tests/test_video_processor.py`
 - `01_WINDOWS_AI/tools/data_export/win_yolo_data_extractor.py`
+- `01_WINDOWS_AI/tools/media/make_btr_demo_video.py`
 - `01_WINDOWS_AI/tools/smoke_tests/test_all_active_models.py`
 - `01_WINDOWS_AI/tools/tracking/clean_target_tracker.py`
 - `02_ROS2_WINDOWS_MIRROR/bridge/uav_windows_tcp_frame_bridge.py`
-- `02_ROS2_WINDOWS_MIRROR/dashboards/uav_analytics_dashboard_v2.py`
-- `02_ROS2_WINDOWS_MIRROR/dashboards/uav_clean_target_dashboard_v5.py`
-- `02_ROS2_WINDOWS_MIRROR/dashboards/uav_tank_type_timeline_dashboard_v1.py`
+- `02_ROS2_WINDOWS_MIRROR/dashboards/uav_analytics_dashboard.py`
+- `02_ROS2_WINDOWS_MIRROR/dashboards/uav_operational_dashboard.py`
+- `02_ROS2_WINDOWS_MIRROR/dashboards/uav_timeline_dashboard.py`
 
 Dataset and training integrations:
 

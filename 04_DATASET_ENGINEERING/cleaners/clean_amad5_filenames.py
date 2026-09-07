@@ -7,9 +7,6 @@ DATASET_ROOT = Path(os.environ.get("UAV_DATASET_ROOT", PROJECT_ROOT / "04_DATASE
 SRC = DATASET_ROOT / "05_amad5_aerial_military_5class"
 DST = DATASET_ROOT / "05_amad5_aerial_military_5class_clean"
 
-CONFIG_DIR = PROJECT_ROOT / "05_TRAINING" / "configs" / "training_configs"
-CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 
 
@@ -84,7 +81,7 @@ for split in ["train", "val", "test"]:
 
     print(f"{split}: images={split_images}, labels={split_labels}")
 
-yaml_text = """path: C:/uav_datasets_master/05_amad5_aerial_military_5class_clean
+yaml_text = f"""path: {DST.resolve().as_posix()}
 train: train/images
 val: val/images
 test: test/images
@@ -98,7 +95,7 @@ names:
   4: civilian_vehicle
 """
 
-yaml_path = CONFIG_DIR / "05_amad5_aerial_military_5class_clean.yaml"
+yaml_path = DST / "data.yaml"
 yaml_path.write_text(yaml_text, encoding="utf-8")
 
 print("\nDONE")
@@ -109,7 +106,7 @@ print(f"Total labels copied: {total_labels}")
 print(f"Errors skipped: {len(errors)}")
 
 if errors:
-    error_log = CONFIG_DIR / "amad5_cleaning_errors.txt"
+    error_log = DST / "amad5_cleaning_errors.txt"
     with open(error_log, "w", encoding="utf-8") as f:
         for file_path, err in errors:
             f.write(file_path + "\n")

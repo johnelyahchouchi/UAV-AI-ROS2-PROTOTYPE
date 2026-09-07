@@ -4,12 +4,28 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.ipynb_checkpoints/
+.coverage
+htmlcov/
 .venv/
 venv/
+env/
+UAV_YOLO_ENV/
+
+# IDE and operating-system metadata
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
 
 # Secrets and deployment identities (keep outside Git)
 .env
 .env.*
+!.env.example
+!.env.template
+!**/.env.example
+!**/.env.template
 *.key
 *.p12
 *.pfx
@@ -17,22 +33,51 @@ venv/
 keystore/
 sros2_keystore/
 
-# Model binaries and generated training artifacts
+# Model binaries are external artifacts; ONNX is not distributed from source Git
 *.pt
 *.pth
 *.onnx
 *.engine
+
+# Generated training artifacts (retain tracked args.yaml/results.csv provenance)
+05_TRAINING/**/train_batch*.jpg
+05_TRAINING/**/val_batch*.jpg
+05_TRAINING/**/labels.jpg
+05_TRAINING/**/results.png
+05_TRAINING/**/*_curve.png
+05_TRAINING/**/confusion_matrix*.png
 05_TRAINING/local_runs/
 05_TRAINING/**/weights/
 runs/
+**/runs/
 training_runs/
+wandb/
 
 # Local datasets, extraction areas, and generated output
 04_DATASET_ENGINEERING/local_data/
 06_TEST_MEDIA/
 08_OUTPUTS/
+outputs/*
+**/outputs/*
+!**/outputs/.gitignore
 model_data_exports/
 tracking_tests/
+
+# Runtime logs, screenshots, capture scratch space, and local media
+logs/
+**/logs/
+**/screenshots/
+**/captures/
+*.log
+*.tmp
+*.temp
+*.bak
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.m4v
+*.webm
 
 # Workstation-generated inventories are local-only; commit sanitized summaries instead
 00_PROJECT_GUIDE/ORIGINAL_SOURCE_INVENTORY.csv

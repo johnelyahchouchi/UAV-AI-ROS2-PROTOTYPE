@@ -14,9 +14,9 @@ mkdir -p "$HOME/.uav-security"
 chmod 700 "$HOME/.uav-security"
 ros2 security create_keystore "$HOME/.uav-security/keystore"
 ros2 security create_enclave "$HOME/.uav-security/keystore" /uav/uav_windows_tcp_frame_bridge
-ros2 security create_enclave "$HOME/.uav-security/keystore" /uav/uav_clean_target_dashboard_v5
-ros2 security create_enclave "$HOME/.uav-security/keystore" /uav/uav_analytics_dashboard_v2
-ros2 security create_enclave "$HOME/.uav-security/keystore" /uav/uav_tank_type_timeline_dashboard_v1
+ros2 security create_enclave "$HOME/.uav-security/keystore" /uav/uav_operational_dashboard
+ros2 security create_enclave "$HOME/.uav-security/keystore" /uav/uav_analytics_dashboard
+ros2 security create_enclave "$HOME/.uav-security/keystore" /uav/uav_timeline_dashboard
 ```
 
 Review and restrict the generated governance/permissions policies to the existing

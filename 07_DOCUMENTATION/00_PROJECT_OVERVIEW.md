@@ -2,6 +2,9 @@
 
 ## Introduction
 
+This document explains the project motivation. For the current file layout, security
+boundaries, uncertainty status, and runnable commands, use the root `README.md`.
+
 During my internship at ADDITESS Ltd., I worked on the development of an AI perception pipeline for UAV applications.
 
 The main idea behind the project is simple: instead of sending only a live video stream to the operator, the UAV should also understand what it is looking at and provide useful information in real time.
@@ -43,3 +46,8 @@ The final objective is to build a complete perception pipeline capable of:
 - Displaying everything on an operator dashboard.
 
 The result is a system that converts raw video into useful information that other robotic software can understand and use.
+
+The current repository also includes a local live/video model tester with on-demand V1
+input-perturbation robustness plus a validated V2 MC Dropout runtime, and a deterministic,
+simulation-first Mission Copilot. V2 remains inactive without its separate trusted
+external checkpoint. Neither component commands an aircraft.

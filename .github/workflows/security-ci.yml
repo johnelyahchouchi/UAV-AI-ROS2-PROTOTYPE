@@ -21,9 +21,9 @@ jobs:
       - name: Install security test tools
         run: python -m pip install --requirement requirements-security-ci.txt
       - name: Compile Python
-        run: python -m compileall -q uav_security 01_WINDOWS_AI 02_ROS2_WINDOWS_MIRROR 04_DATASET_ENGINEERING 05_TRAINING 06_AGENTIC_AUTONOMY
-      - name: Security regression tests
-        run: python -m pytest -q tests/security
+        run: python -m compileall -q uav_security 01_WINDOWS_AI 02_ROS2_WINDOWS_MIRROR 04_DATASET_ENGINEERING 05_TRAINING 06_AGENTIC_AUTONOMY 08_MODEL_UNCERTAINTY tests
+      - name: Core repository regression tests
+        run: python -m pytest -q tests
       - name: Mission copilot regression tests
         working-directory: 06_AGENTIC_AUTONOMY
         run: python -m pytest -q

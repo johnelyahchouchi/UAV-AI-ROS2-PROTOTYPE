@@ -1,47 +1,32 @@
 # 04 - ROS 2 Architecture
 
-## Overview
+`02_ROS2_WINDOWS_MIRROR/` contains the current bridge and three complementary dashboard
+scripts. It is a source/deployment mirror, not a complete local ROS 2 installation.
 
-ROS 2 serves as the communication backbone of the robotic system. Rather than connecting software components through direct function calls, ROS 2 allows independent nodes to exchange information using a publish-subscribe architecture.
+## Bridge
 
-In this project, ROS 2 receives processed detection data from the Windows AI application and distributes it to visualization tools and other robotic modules.
+The Windows sender is a mutual-TLS client. The bridge is a mutual-TLS server that
+authenticates the sender, validates bounded protocol-v2 headers/JPEG data, rejects replay
+and malformed detections, decodes the frame, and only then publishes ROS 2 messages.
+There is no plaintext fallback.
 
-This design enables multiple applications to access the same information simultaneously without modifying the perception pipeline.
+The existing published topics remain:
 
----
+- `/uav_1/camera/image_raw`
+- `/uav_1/coco_detections`
 
-## ROS 2 Nodes
+## Dashboards
 
-Each major software component is implemented as an independent ROS 2 node.
+- `uav_operational_dashboard.py`: primary image, detection, track, and threat view.
+- `uav_analytics_dashboard.py`: aggregate history, charts, map, and target lifetimes.
+- `uav_timeline_dashboard.py`: first-seen and classification-change events.
 
-Every node performs a specific task, such as receiving TCP messages, publishing detections, displaying the operator dashboard or processing additional robotic information.
+These are purpose-specific consumers, not successive dashboard versions. Runtime CSVs
+belong in external/local output directories. Renamed node identities require matching
+SROS2 enclave policy updates before Ubuntu deployment.
 
-Because each node operates independently, components can be started, stopped or updated without affecting the rest of the system.
+## Validation boundary
 
----
-
-## Topics
-
-Communication between nodes takes place through ROS 2 topics.
-
-A node publishes information to a topic, while one or more nodes subscribe to that topic to receive the published messages.
-
-This publish-subscribe model removes direct dependencies between software components and improves the modularity of the overall architecture.
-
----
-
-## ROS 2 Bridge
-
-The ROS 2 bridge acts as the interface between the TCP communication layer and the ROS 2 ecosystem.
-
-After receiving serialized detection messages from the Windows AI application, the bridge reconstructs the data and publishes it as ROS 2 messages.
-
-From this point onward, every ROS 2 node receives the same synchronized perception data regardless of its internal implementation.
-
----
-
-## Visualization
-
-Operator dashboards subscribe to the published detection topics and visualize the current perception results.
-
-Because dashboards obtain their information directly from ROS 2 topics, multiple visualization tools can operate simultaneously without increasing the computational load on the AI pipeline.
+Python syntax and dashboard source/topic tests can run without ROS 2. Actual node startup,
+DDS/SROS2 policy enforcement, Ubuntu package layout, QoS, live topic flow, and hardware
+integration must be validated in the real deployed ROS 2 workspace.

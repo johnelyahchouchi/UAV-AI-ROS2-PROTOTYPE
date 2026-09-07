@@ -8,10 +8,6 @@ if not defined UAV_YOLO_PYTHON (
   for %%I in ("%PROJECT_ROOT%\..\UAV_YOLO_ENV\Scripts\python.exe") do if exist "%%~fI" set "UAV_YOLO_PYTHON=%%~fI"
 )
 
-if not defined UAV_MODEL_PATH (
-  for %%I in ("%PROJECT_ROOT%\05_TRAINING\detection_runs\military_kaggle_yolov8s_v1\weights\best.pt") do if exist "%%~fI" set "UAV_MODEL_PATH=%%~fI"
-)
-
 if not exist "%LIVE_TESTER%" (
   echo ERROR: Live screen tester application was not found.
   pause
@@ -33,8 +29,8 @@ if not exist "%UAV_YOLO_PYTHON%" (
 
 if "%~1"=="" (
   if not defined UAV_MODEL_PATH (
-    echo ERROR: The local military detector was not found.
-    echo Set UAV_MODEL_PATH to an existing trusted .pt checkpoint and try again.
+    echo ERROR: UAV_MODEL_PATH is not configured.
+    echo Set it to an existing external trusted .pt checkpoint and try again.
     pause
     exit /b 2
   )
@@ -45,7 +41,7 @@ if "%~1"=="" (
   )
 
   echo Select an MP4 video in the file picker to start continuous detection.
-  echo Controls: Q or ESC quit, P pause, S screenshot, H toggle HUD.
+  echo Controls: Q or ESC quit, P pause, S screenshot, H HUD, U V1 robustness.
   "%UAV_YOLO_PYTHON%" "%LIVE_TESTER%" --select-video --loop-video
 ) else (
   "%UAV_YOLO_PYTHON%" "%LIVE_TESTER%" %*

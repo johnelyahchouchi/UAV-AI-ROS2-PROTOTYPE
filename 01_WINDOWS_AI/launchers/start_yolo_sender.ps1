@@ -1,7 +1,7 @@
 param(
     [string]$Target = $(if ($env:UAV_BRIDGE_HOST) { $env:UAV_BRIDGE_HOST } else { "127.0.0.1" }),
     [int]$Port = $(if ($env:UAV_BRIDGE_PORT) { [int]$env:UAV_BRIDGE_PORT } else { 5010 }),
-    [string]$Source = "",
+    [string]$Source = $env:UAV_TEST_VIDEO,
     [string]$Model = $env:UAV_MODEL_PATH,
     [double]$Confidence = 0.25,
     [double]$IoU = 0.45,
@@ -24,7 +24,7 @@ if ([string]::IsNullOrWhiteSpace($Model) -or -not (Test-Path -LiteralPath $Model
     throw "Set UAV_MODEL_PATH to an existing, trusted local .pt checkpoint."
 }
 if ([string]::IsNullOrWhiteSpace($Source)) {
-    $Source = Join-Path $ProjectRoot "06_TEST_MEDIA\videos\vehicles.mp4"
+    throw "Set UAV_TEST_VIDEO or pass -Source with an approved local video or source."
 }
 
 $SenderArguments = @(

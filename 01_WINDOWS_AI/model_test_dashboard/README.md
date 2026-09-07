@@ -6,7 +6,7 @@ agentic-autonomy subsystem.
 
 ## Scope
 
-Version 1 supports:
+The dashboard supports:
 
 - drag-and-drop or browse video upload;
 - an external Ultralytics detection-model `.pt` file;
@@ -20,8 +20,6 @@ Version 1 supports:
 It does not support webcams, RTSP, live partial-video output, TCP, or ROS 2.
 
 ## Dedicated Python environment
-
-Do not use bare `python` on this workstation. It launches Amesim Python 2.7.
 
 Configure the verified environment explicitly; it may live anywhere outside the
 repository:
@@ -57,29 +55,16 @@ For development tests:
     -c constraints-yolo-env.txt
 ```
 
-Verify CUDA after installation:
+Verify the environment after installation:
 
 ```powershell
-& $Python -c "import numpy, torch; print(numpy.__version__); print(torch.__version__); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
-```
-
-Expected on this workstation:
-
-```text
-1.26.4
-2.13.0+cu130
-True
-NVIDIA GeForce RTX 2060
+& $Python -c "import numpy, torch; print(numpy.__version__); print(torch.__version__); print('CUDA:', torch.cuda.is_available())"
 ```
 
 ## Default model
 
-`UAV_MODEL_PATH` takes precedence. Otherwise the dashboard displays the
-repository-relative deployment location:
-
-```text
-03_MODELS\active\detector\military_kaggle_v1.pt
-```
+`UAV_MODEL_PATH` supplies the optional initial value. Otherwise the model field is
+empty and the operator must browse to an external checkpoint.
 
 Production model artifacts should remain outside Git. Before loading, the
 dashboard hashes the selected `.pt` file and requires that SHA-256 in the trusted
@@ -91,7 +76,7 @@ modification time. Selecting an unchanged verified model reuses the loaded objec
 From the repository root:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\01_WINDOWS_AI\model_test_dashboard\launch_dashboard.ps1
+.\01_WINDOWS_AI\model_test_dashboard\launch_dashboard.ps1
 ```
 
 The local page is:

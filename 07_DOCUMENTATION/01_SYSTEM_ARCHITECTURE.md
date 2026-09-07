@@ -1,34 +1,45 @@
 # 01 - System Architecture
 
-## Overview
+The repository contains complementary research paths rather than one mandatory runtime.
 
-The project is divided into two main environments:
+```text
+operator-provided video/screen
+        -> trusted YOLO load (SHA-256 allowlist)
+        -> live tester: one prediction per normal frame
+             -> U: frozen-frame V1 input-perturbation robustness
 
-- Windows AI Computer
-- Ubuntu ROS 2 Computer
+video/camera source -> YOLO + BoT-SORT + threat fields
+        -> authenticated protocol v2 over mutual TLS 1.3
+        -> ROS 2 bridge mirror
+        -> operational / analytics / timeline dashboards
 
-This separation allows GPU-intensive AI inference to run on the Windows machine while the robotic middleware and visualization tools execute on the Ubuntu ROS 2 environment.
+mission JSON -> deterministic Mission Copilot -> explainable simulated recommendations
+```
 
-The two systems communicate through a TCP connection, allowing detection results to be transferred in real time.
+## Windows AI
 
-Each environment is responsible for a specific part of the perception pipeline, creating a modular architecture that can be extended or modified independently.
+The active sender detects, tracks, computes existing threat metadata, and sends bounded
+frames/detections. The live tester and recorded model dashboard are local evaluation
+tools; they do not publish ROS topics or command an aircraft. Model files are external
+artifacts and are verified before deserialization.
 
-## System Components
+## ROS 2 side
 
-The perception pipeline is composed of two independent software environments connected through a TCP communication channel.
+`02_ROS2_WINDOWS_MIRROR/` mirrors deployable bridge/dashboard source. It is not a ROS 2
+workspace and does not prove that ROS 2, SROS2 identities, or the Ubuntu deployment are
+installed on this Windows machine. The bridge rejects plaintext and invalid protocol-v2
+messages before publishing the existing topics.
 
-The Windows environment is responsible for image processing and AI inference, while the Ubuntu environment manages robotics communication through ROS 2 and provides the interface used by the operator.
+## Mission Copilot
 
-This separation allows each system to focus on a specific task, improving modularity, maintainability and future scalability.
+`06_AGENTIC_AUTONOMY/` is a standard-library, simulation-first deterministic core. Its
+recommendations remain separated from ROS/PX4 adapters and do not control motors,
+actuators, weapons, or harmful actions.
 
-### Windows AI Environment
+## Trust and deployment boundaries
 
-The Windows application receives the live video stream, performs object detection using YOLO, tracks objects with BoT-SORT and evaluates a basic threat level for every detected target.
-
-Once processing is complete, the detection results are serialized into a JSON structure and transmitted to the ROS 2 computer through a TCP socket.
-
-### Ubuntu ROS 2 Environment
-
-The Ubuntu system receives the TCP packets, reconstructs the detection data and publishes the information as ROS 2 topics.
-
-These topics can then be consumed by dashboards, visualization tools or any additional ROS 2 node without modifying the AI pipeline itself.
+- Model checkpoints, datasets, videos, TLS keys/certificates, and SROS2 keystores stay
+  outside source Git.
+- Transport details and required environment variables are in `03_TCP_PROTOCOL.md`.
+- SROS2 deployment is separately described in `11_SROS2_DEPLOYMENT.md`.
+- This prototype is not safety-certified flight software.

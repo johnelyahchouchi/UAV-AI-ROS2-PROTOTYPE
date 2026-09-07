@@ -1,6 +1,0 @@
-Training result folders were intentionally NOT copied because they may be very large.
-
-Existing locations:
-<legacy-project-root>\runs
-<legacy-project-root>\training_runs
-<legacy-project-root>\runs\detect\training_runs

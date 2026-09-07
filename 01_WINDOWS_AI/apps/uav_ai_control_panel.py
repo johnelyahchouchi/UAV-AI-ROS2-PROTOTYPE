@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, simpledialog, simpledialog
+from tkinter import ttk, filedialog, messagebox, simpledialog
 import subprocess
 import threading
 import queue
@@ -15,39 +15,26 @@ from uav_security.input_validation import InputValidationError, validate_sender_
 from uav_security.source_urls import source_log_label
 
 SENDER_SCRIPT = PROJECT_DIR / "01_WINDOWS_AI" / "apps" / "win_yolo_tcp_sender_botsort_threat.py"
-DEFAULT_MODEL = os.environ.get(
-    "UAV_MODEL_PATH",
-    str(PROJECT_DIR / "03_MODELS" / "active" / "detector" / "military_kaggle_v1.pt"),
-)
-BTR_MODEL = os.environ.get("UAV_BTR_MODEL_PATH", DEFAULT_MODEL)
+DEFAULT_MODEL = os.environ.get("UAV_MODEL_PATH", "")
+DEFAULT_SOURCE = os.environ.get("UAV_TEST_VIDEO", "")
 
 
 MODES = {
-    "General surveillance - vehicles.mp4": {
+    "Recorded video - browse or UAV_TEST_VIDEO": {
         "model": DEFAULT_MODEL,
-        "source": "vehicles.mp4",
-        "conf": "0.25"
-    },
-    "BTR armored - real tank video": {
-        "model": BTR_MODEL,
-        "source": "tank_real_test.mp4",
-        "conf": "0.4"
-    },
-    "BTR armored - demo video": {
-        "model": BTR_MODEL,
-        "source": "btr_demo.mp4",
-        "conf": "0.4"
+        "source": DEFAULT_SOURCE,
+        "conf": "0.25",
     },
     "Live stream - general surveillance": {
         "model": DEFAULT_MODEL,
         "source": "",
-        "conf": "0.25"
+        "conf": "0.25",
     },
     "Custom source / custom model": {
         "model": "",
         "source": "",
-        "conf": "0.25"
-    }
+        "conf": "0.25",
+    },
 }
 
 
@@ -62,10 +49,10 @@ class UAVAIControlPanel:
 
         self.vm_ip = tk.StringVar(value=os.environ.get("UAV_BRIDGE_HOST", "127.0.0.1"))
         self.port = tk.StringVar(value=os.environ.get("UAV_BRIDGE_PORT", "5010"))
-        self.mode = tk.StringVar(value="BTR armored - real tank video")
-        self.model = tk.StringVar(value=BTR_MODEL)
-        self.source = tk.StringVar(value="tank_real_test.mp4")
-        self.conf = tk.StringVar(value="0.15")
+        self.mode = tk.StringVar(value="Recorded video - browse or UAV_TEST_VIDEO")
+        self.model = tk.StringVar(value=DEFAULT_MODEL)
+        self.source = tk.StringVar(value=DEFAULT_SOURCE)
+        self.conf = tk.StringVar(value="0.25")
         self.iou = tk.StringVar(value="0.45")
         self.imgsz = tk.StringVar(value="640")
         self.stride = tk.StringVar(value="1")
