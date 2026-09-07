@@ -38,6 +38,16 @@ environment next to the repository, requires the external trusted checkpoint thr
 `UAV_MODEL_PATH`, opens a native MP4 picker, and loops the chosen file. The picker—not a
 predefined video environment variable—is the default input.
 
+For a V2-focused run without pre-setting model paths, use:
+
+```powershell
+.\01_WINDOWS_AI\launchers\Start_MC_Dropout_V2.bat
+```
+
+It opens native pickers for the trusted base detector, validated V2 checkpoint, and
+MP4. The launcher uses `--require-mcdo-v2`, so an absent, unapproved, or incompatible
+V2 checkpoint produces an error instead of silently starting a V1-only session.
+
 Equivalent explicit examples:
 
 ```powershell

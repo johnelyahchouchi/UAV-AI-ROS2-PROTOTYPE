@@ -42,6 +42,11 @@ $env:UAV_MCDO_V2_MODEL_PATH = "D:\models\military_kaggle_v2_mcdo.pt"
 .\01_WINDOWS_AI\launchers\Start_Live_Screen_Tester.bat
 ```
 
+For a dedicated V2 run without pre-setting model paths, double-click
+`01_WINDOWS_AI\launchers\Start_MC_Dropout_V2.bat`. It opens native pickers for the
+trusted base detector, the validated external V2 checkpoint, and the MP4, and refuses
+to fall back silently when V2 validation fails.
+
 The launcher opens a native MP4 picker and loops the chosen video. Controls:
 
 - `U`: freeze the current raw frame. With validated V2 loaded, choose `1` for V1 or

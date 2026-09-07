@@ -181,6 +181,65 @@ def test_video_picker_cancel_is_a_clear_error() -> None:
         )
 
 
+def test_checkpoint_picker_returns_selected_pt_and_destroys_root(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "validated v2.pt"
+    checkpoint.touch()
+
+    class FakeRoot:
+        withdrawn = False
+        topmost = False
+        destroyed = False
+
+        def withdraw(self):
+            self.withdrawn = True
+
+        def attributes(self, name, value):
+            assert name == "-topmost"
+            self.topmost = value
+
+        def destroy(self):
+            self.destroyed = True
+
+    root = FakeRoot()
+
+    def choose(**options):
+        assert options["parent"] is root
+        assert options["filetypes"] == (("PyTorch checkpoint", "*.pt"),)
+        return str(checkpoint)
+
+    selected = tester.select_checkpoint_with_dialog(
+        title="Select V2",
+        selection_name="V2 checkpoint",
+        tk_factory=lambda: root,
+        askopenfilename=choose,
+    )
+
+    assert selected == checkpoint.resolve()
+    assert root.withdrawn is True
+    assert root.topmost is True
+    assert root.destroyed is True
+
+
+def test_checkpoint_picker_cancel_is_a_clear_error() -> None:
+    class FakeRoot:
+        def withdraw(self):
+            return None
+
+        def attributes(self, *args):
+            return None
+
+        def destroy(self):
+            return None
+
+    with pytest.raises(tester.TesterError, match="V2 checkpoint selection was cancelled"):
+        tester.select_checkpoint_with_dialog(
+            title="Select V2",
+            selection_name="V2 checkpoint",
+            tk_factory=FakeRoot,
+            askopenfilename=lambda **options: "",
+        )
+
+
 def test_video_source_restarts_at_eof_when_looping(tmp_path: Path) -> None:
     video_path = tmp_path / "video.mp4"
     video_path.touch()
@@ -234,6 +293,20 @@ def test_video_mode_rejects_screen_region_options() -> None:
 
     with pytest.raises(tester.TesterError, match="screen-region"):
         tester.validate_numeric_options(args)
+
+
+def test_required_mcdo_v2_rejects_noninteractive_modes() -> None:
+    disabled = tester.build_parser().parse_args(
+        ["--require-mcdo-v2", "--disable-uncertainty"]
+    )
+    test_frame = tester.build_parser().parse_args(
+        ["--require-mcdo-v2", "--test-frame", "frame.jpg"]
+    )
+
+    with pytest.raises(tester.TesterError, match="disable-uncertainty"):
+        tester.validate_numeric_options(disabled)
+    with pytest.raises(tester.TesterError, match="interactive"):
+        tester.validate_numeric_options(test_frame)
 
 
 def test_video_preview_processes_frame_and_quits_cleanly(tmp_path: Path) -> None:
@@ -500,6 +573,27 @@ def test_batch_launcher_is_dynamic_and_opens_video_picker() -> None:
     assert "weights\\best.pt" not in content
     assert "powershell.exe" not in content.lower()
     assert "-ExecutionPolicy Bypass" not in content
+    assert "C:\\Users\\" not in content
+    assert "OneDrive" not in content
+
+
+def test_mcdo_v2_batch_launcher_uses_native_pickers_and_requires_v2() -> None:
+    launcher = (
+        PROJECT_ROOT
+        / "01_WINDOWS_AI"
+        / "launchers"
+        / "Start_MC_Dropout_V2.bat"
+    )
+    content = launcher.read_text(encoding="utf-8")
+
+    assert "%~dp0..\\apps\\live_screen_model_tester.py" in content
+    assert "--select-model" in content
+    assert "--select-mcdo-v2-model" in content
+    assert "--require-mcdo-v2" in content
+    assert "--select-video --loop-video" in content
+    assert "UAV_YOLO_PYTHON" in content
+    assert ".venv\\Scripts\\python.exe" in content
+    assert "..\\UAV_YOLO_ENV\\Scripts\\python.exe" in content
     assert "C:\\Users\\" not in content
     assert "OneDrive" not in content
 

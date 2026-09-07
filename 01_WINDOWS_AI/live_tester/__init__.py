@@ -12,6 +12,7 @@ from .configuration import (
     resolve_mcdo_v2_model_path,
     resolve_model_path,
     resolve_video_path,
+    select_checkpoint_with_dialog,
     select_video_with_dialog,
     validate_numeric_options,
 )

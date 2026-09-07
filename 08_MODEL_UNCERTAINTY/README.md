@@ -95,6 +95,13 @@ The normal tester performs one YOLO inference per frame. Pressing `U`:
 Press `S` while the inspection is visible to save the inspection view. V1 is not run
 continuously, so its repeated passes do not reduce normal live throughput.
 
+For a dedicated local V2 session on Windows, run
+`01_WINDOWS_AI\launchers\Start_MC_Dropout_V2.bat`. It opens native pickers for the
+trusted base detector, the separately trained V2 checkpoint, and an MP4, and fails
+closed when V2 trust or architecture validation fails. Press `U`, then `2`, to inspect
+the exact frozen frame. The checkpoint remains external and must be enrolled using its
+real independently verified SHA-256 before it can be deserialized.
+
 ## Code layout
 
 ```text

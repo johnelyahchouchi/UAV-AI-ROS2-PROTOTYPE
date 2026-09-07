@@ -18,6 +18,7 @@ from .configuration import (
     resolve_mcdo_v2_model_path,
     resolve_model_path,
     resolve_video_path,
+    select_checkpoint_with_dialog,
     select_video_with_dialog,
     validate_numeric_options,
 )
@@ -47,7 +48,25 @@ def main(argv: Sequence[str] | None = None) -> int:
             print_monitors(discover_monitors())
             return 0
 
-        model_path = resolve_model_path(args.model)
+        selected_model = (
+            select_checkpoint_with_dialog(
+                title="Select the trusted base detector checkpoint",
+                selection_name="Base detector checkpoint",
+            )
+            if args.select_model
+            else args.model
+        )
+        model_path = resolve_model_path(
+            str(selected_model) if selected_model is not None else None
+        )
+        selected_mcdo_model = (
+            select_checkpoint_with_dialog(
+                title="Select the validated V2 MC Dropout checkpoint",
+                selection_name="V2 MC Dropout checkpoint",
+            )
+            if args.select_mcdo_v2_model
+            else args.mcdo_v2_model
+        )
         device = resolve_device(args.device)
         allowed_classes = parse_class_filter(args.classes, tank_only=args.tank_only)
         try:
@@ -96,7 +115,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         if uncertainty_available:
             try:
-                mcdo_model_path = resolve_mcdo_v2_model_path(args.mcdo_v2_model)
+                mcdo_model_path = resolve_mcdo_v2_model_path(
+                    str(selected_mcdo_model)
+                    if selected_mcdo_model is not None
+                    else None
+                )
             except TesterError as error:
                 mcdo_model_path = None
                 mcdo_unavailable_reason = str(error)
@@ -115,6 +138,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                     )
                 except (ModelIntegrityError, TesterError, ValueError, RuntimeError) as error:
                     mcdo_unavailable_reason = str(error)
+        if args.require_mcdo_v2 and mcdo_inspector is None:
+            raise TesterError(
+                f"V2 MC Dropout is required but unavailable: {mcdo_unavailable_reason}"
+            )
         processor = FrameProcessor(
             detector,
             OverlayRenderer(cv2),

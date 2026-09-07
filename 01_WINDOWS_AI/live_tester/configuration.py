@@ -129,6 +129,59 @@ def resolve_mcdo_v2_model_path(
     return resolved
 
 
+def select_checkpoint_with_dialog(
+    *,
+    title: str,
+    selection_name: str,
+    tk_factory: Callable[[], Any] | None = None,
+    askopenfilename: Callable[..., str] | None = None,
+) -> Path:
+    """Open a native picker and return one selected local ``.pt`` checkpoint."""
+
+    if tk_factory is None or askopenfilename is None:
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+        except ImportError as error:
+            raise TesterError(
+                "The model picker requires Tkinter in the selected Python environment"
+            ) from error
+        tk_factory = tk.Tk
+        askopenfilename = filedialog.askopenfilename
+    try:
+        root = tk_factory()
+    except Exception as error:
+        raise TesterError(f"Could not create the model selection dialog: {error}") from error
+    try:
+        root.withdraw()
+        try:
+            root.attributes("-topmost", True)
+        except Exception:
+            pass
+        selected = askopenfilename(
+            parent=root,
+            title=title,
+            filetypes=(("PyTorch checkpoint", "*.pt"),),
+        )
+    except Exception as error:
+        raise TesterError(f"Model selection dialog failed: {error}") from error
+    finally:
+        try:
+            root.destroy()
+        except Exception:
+            pass
+    if not selected:
+        raise TesterError(f"{selection_name} selection was cancelled")
+    candidate = Path(selected).expanduser()
+    try:
+        resolved = candidate.resolve(strict=True)
+    except OSError as error:
+        raise TesterError(f"Selected checkpoint does not exist: {candidate}") from error
+    if not resolved.is_file() or resolved.suffix.lower() != ".pt":
+        raise TesterError(f"{selection_name} must be an existing .pt checkpoint")
+    return resolved
+
+
 def windows_desktop_path() -> Path:
     """Resolve the current Windows Desktop, including folder redirection."""
 
@@ -332,6 +385,18 @@ def validate_numeric_options(args: argparse.Namespace) -> None:
         raise TesterError("Video mode cannot be combined with screen-region options")
     if args.loop_video and not video_mode:
         raise TesterError("--loop-video requires a video source")
+    if args.require_mcdo_v2 and args.disable_uncertainty:
+        raise TesterError(
+            "--require-mcdo-v2 cannot be combined with --disable-uncertainty"
+        )
+    if args.require_mcdo_v2 and args.test_frame:
+        raise TesterError(
+            "--require-mcdo-v2 requires an interactive live or video session"
+        )
+    if args.select_mcdo_v2_model and (args.disable_uncertainty or args.test_frame):
+        raise TesterError(
+            "--select-mcdo-v2-model requires an interactive live or video session"
+        )
 
 
 def capture_region_from_args(
@@ -370,7 +435,15 @@ def build_parser() -> argparse.ArgumentParser:
             "Dropout model uncertainty on demand."
         )
     )
-    parser.add_argument("--model", help="Trusted local .pt model (or UAV_MODEL_PATH)")
+    model_group = parser.add_mutually_exclusive_group()
+    model_group.add_argument(
+        "--model", help="Trusted local .pt model (or UAV_MODEL_PATH)"
+    )
+    model_group.add_argument(
+        "--select-model",
+        action="store_true",
+        help="Open a picker for the trusted base detector checkpoint",
+    )
     video_group = parser.add_mutually_exclusive_group()
     video_group.add_argument("--video", type=Path, help="Read one local MP4")
     video_group.add_argument(
@@ -402,12 +475,23 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--uncertainty-samples", type=int, default=10)
     parser.add_argument("--uncertainty-seed", type=int, default=42)
     parser.add_argument("--uncertainty-match-iou", type=float, default=0.50)
-    parser.add_argument(
+    mcdo_model_group = parser.add_mutually_exclusive_group()
+    mcdo_model_group.add_argument(
         "--mcdo-v2-model",
         help="Trusted external V2 checkpoint (or UAV_MCDO_V2_MODEL_PATH)",
     )
+    mcdo_model_group.add_argument(
+        "--select-mcdo-v2-model",
+        action="store_true",
+        help="Open a picker for the validated external V2 checkpoint",
+    )
     parser.add_argument("--mcdo-v2-passes", type=int, default=20)
     parser.add_argument("--mcdo-v2-match-iou", type=float, default=0.50)
+    parser.add_argument(
+        "--require-mcdo-v2",
+        action="store_true",
+        help="Fail instead of falling back to V1 when V2 cannot be validated",
+    )
     parser.add_argument(
         "--disable-uncertainty",
         action="store_true",
