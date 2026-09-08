@@ -2,6 +2,7 @@
 
 | Launcher | Purpose |
 |---|---|
+| `Start_UAV_Prototype_GUI.bat` | Full desktop control center and readiness dashboard. Configures and launches the maintained live tester, V1/V2 inspection, recorded dashboard, secure sender, and Mission Copilot. |
 | `Start_Live_Screen_Tester.bat` | Canonical presentation entry point. Opens the MP4 picker by default and forwards optional tester CLI arguments. |
 | `Start_MC_Dropout_V2.bat` | Dedicated local V2 entry point. Opens native pickers for the trusted base detector, validated V2 checkpoint, and MP4; fails closed if V2 cannot be verified. |
 | `start_yolo_sender.ps1` | Canonical parameterized Windows sender launcher. Requires external model/source and TLS configuration. |
@@ -23,3 +24,9 @@ select both external `.pt` files and an MP4 in the three dialogs. The files rema
 outside Git. Both model digests must already be approved in
 `00_PROJECT_GUIDE/ACTIVE_MODEL_HASHES.csv`; the launcher never bypasses trust or
 architecture validation.
+
+For the complete graphical workflow, run `Start_UAV_Prototype_GUI.bat`. The GUI stores
+workstation-only settings under ignored `08_OUTPUTS/control_center/`, never stores a
+credential-bearing stream URL, and keeps model weights, media, certificates, and keys
+outside Git. The Activity Log captures child-process output without constructing shell
+commands.
