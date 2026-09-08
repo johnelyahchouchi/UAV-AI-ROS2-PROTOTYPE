@@ -29,6 +29,19 @@ JSON mission snapshot ── deterministic Mission Copilot ── safe recommend
 The live path uses one detector inference per frame. Repeated uncertainty analysis
 happens only after the operator presses `U`; it never runs in the normal capture loop.
 
+## Full Windows GUI
+
+The complete local operator interface is:
+
+```powershell
+.\01_WINDOWS_AI\launchers\Start_UAV_Prototype_GUI.bat
+```
+
+It opens a five-tab readiness dashboard for the live tester, V1/V2 uncertainty,
+recorded-video analysis, secure Windows sender, deterministic Mission Copilot, and
+managed process logs. Models, media, TLS material and generated output remain external.
+See [the control-center guide](07_DOCUMENTATION/UAV_PROTOTYPE_CONTROL_CENTER.md).
+
 ## Quick presentation demo (Windows, no ROS 2 required)
 
 Use CPython 3.11 in the controlled YOLO environment. Set external paths when the
@@ -67,11 +80,12 @@ commit downloaded or copyrighted videos.
 - **V1 input-perturbation robustness: implemented.** One clean pass plus deterministic
   brightness, contrast, blur, noise, and JPEG variants report persistence, confidence
   mean/std, class agreement/entropy/evidence share, box variation, and reference IoU.
-- **V2 MC Dropout runtime: implemented, checkpoint not present.** It validates six
+- **V2 MC Dropout runtime: implemented and externally validated.** It validates six
   late-head `Dropout2d(p=0.20)` layers, keeps BatchNorm in evaluation mode, and runs 20
   lower-level stochastic forwards on one unchanged frame. It becomes selectable only
   with the separate allowlisted external checkpoint configured through
   `UAV_MCDO_V2_MODEL_PATH`; deterministic repeats and V1 weights are never substituted.
+  The checkpoint remains outside source Git.
 
 These metrics are not correctness probabilities or a safety certification. Details are
 in [08_MODEL_UNCERTAINTY/README.md](08_MODEL_UNCERTAINTY/README.md).
@@ -81,6 +95,8 @@ in [08_MODEL_UNCERTAINTY/README.md](08_MODEL_UNCERTAINTY/README.md).
 - Active sender: `01_WINDOWS_AI/apps/win_yolo_tcp_sender_botsort_threat.py`.
 - Protected regression copy: `win_yolo_tcp_sender_botsort_threat_BASELINE.py`.
 - Live tester: thin entry point plus reusable modules in `01_WINDOWS_AI/live_tester/`.
+- Full GUI: `01_WINDOWS_AI/control_center/` with the
+  `Start_UAV_Prototype_GUI.bat` launcher.
 - Recorded-video test/export UI: `01_WINDOWS_AI/model_test_dashboard/`.
 - Canonical sender launchers: `start_yolo_sender.ps1` and its BAT wrapper.
 

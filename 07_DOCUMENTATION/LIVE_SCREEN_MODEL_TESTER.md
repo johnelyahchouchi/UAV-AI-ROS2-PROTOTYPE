@@ -93,6 +93,8 @@ presentation machine needs lower latency.
 - `2` in the method menu: V2 MC Dropout model uncertainty.
 - Esc or Space in the method menu: cancel and resume.
 - `P`, `U`, or Space while inspecting: resume the stream.
+- `A`/`D` or `[`/`]` while inspecting: move between target-card pages when more than
+  two targets are present.
 
 Screenshots use unique timestamped names under `08_OUTPUTS/live_screen_tester/` by
 default. The output tree is ignored by Git.
@@ -116,6 +118,13 @@ variation, and clusters that appear only under perturbation are called out separ
 The FPS interval is reset after a pause or inspection so blocking analysis time is not
 misreported as live throughput.
 
+V1, V2, their working notices, and the method selector use anti-aliased TrueType text
+rendered at the final display resolution through Pillow. The renderer discovers Segoe
+UI or Arial from the Windows font directory and falls back to cross-platform sans-serif
+fonts without a user-specific path. Inspection output uses a responsive 16:9 split with
+an uncropped frozen frame, frame summary, restrained semantic status colors, and at most
+two readable target cards per page.
+
 V2 holds that same raw frame and its preprocessed tensor fixed for 20 lower-level model
 forwards while only the checkpoint's six validated `Dropout2d(p=0.20)` modules are
 active. The model and all BatchNorm layers remain in evaluation mode. V2 reports
@@ -126,7 +135,8 @@ calibrated correctness probability.
 
 V2 is shown only when a separate checkpoint supplied by `--mcdo-v2-model` or
 `UAV_MCDO_V2_MODEL_PATH` passes SHA-256 trust and architecture checks. The validated
-checkpoint is intentionally not stored in Git and was not present during integration.
+checkpoint is intentionally not stored in Git. Its digest is recorded in the model
+registry after local manual validation.
 An absent, untrusted, incompatible, or unloadable V2 checkpoint leaves the session and
 the direct V1 workflow available; the tester never injects dropout into V1 or uses
 deterministic repeats as a substitute.
@@ -179,5 +189,6 @@ It uses fakes and needs no monitor, real model, GPU, ROS 2, camera, or network.
   video surfaces cannot be captured by MSS; use direct local MP4 decoding.
 - **Slow `U` analysis:** repeated passes are intentionally synchronous on the frozen
   frame. Lower `--uncertainty-samples` for a shorter demonstration, but keep at least 1.
-- **V2 unavailable:** obtain the exact Colab checkpoint, verify/register its real
-  SHA-256, then set `UAV_MCDO_V2_MODEL_PATH`. Do not point this variable at V1 weights.
+- **V2 unavailable:** set `UAV_MCDO_V2_MODEL_PATH` to the separately stored validated
+  checkpoint. If using a different artifact, verify its provenance and register its real
+  SHA-256 first. Do not point this variable at V1 weights.

@@ -34,6 +34,15 @@ from .domain import (
 )
 from .renderer import OverlayRenderer
 from .mc_dropout_adapter import MCDOV2LiveInspector
+from .mc_dropout_adapter import mcdo_frame_summary
+from .presentation_ui import (
+    FontResolver,
+    PillowCanvas,
+    Rect,
+    calculate_presentation_layout,
+    presentation_canvas_size,
+    render_method_selector,
+)
 from .runtime import (
     FrameProcessor,
     PerformanceTracker,

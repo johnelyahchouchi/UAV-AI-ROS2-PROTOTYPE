@@ -68,8 +68,9 @@ not a calibrated posterior or safety guarantee.
 
 The runtime is inactive until `UAV_MCDO_V2_MODEL_PATH` identifies the real external
 validated checkpoint and its SHA-256 is present in the trusted model registry. That
-checkpoint was not available during this integration, so no digest was invented and no
-V2 registry row was added.
+checkpoint remains outside source Git. Its independently verified digest and size are
+recorded in the trusted model registry; local runtime loading still fails closed if the
+selected file does not match them.
 
 ## Method comparison
 
@@ -90,9 +91,11 @@ The normal tester performs one YOLO inference per frame. Pressing `U`:
 3. runs V1 directly when no validated V2 checkpoint is loaded; or displays `1` for V1
    and `2` for V2 when it is loaded;
 4. displays method-specific per-target metrics and a bounded interpretation;
-5. waits for `P`, `U`, or Space to resume.
+5. paginates readable target cards in groups of two when necessary;
+6. waits for `P`, `U`, or Space to resume.
 
-Press `S` while the inspection is visible to save the inspection view. V1 is not run
+Press `A`/`D` or `[`/`]` to change inspection pages and `S` to save the visible page.
+V1 is not run
 continuously, so its repeated passes do not reduce normal live throughput.
 
 For a dedicated local V2 session on Windows, run
@@ -111,14 +114,15 @@ src/uav_uncertainty/
   matching.py        class-agnostic one-to-one IoU matching
   metrics.py         transparent per-target statistics
   analysis.py        in-memory orchestration
-  presentation.py    non-probabilistic interpretation labels
+  presentation.py    dimension-consistent, non-probabilistic interpretation labels
   methods.py         explicit V2 runtime/checkpoint capability record
   mc_dropout_v2.py   validated V2 state, clustering, metrics, orchestration
   mc_dropout_ultralytics.py  trusted Ultralytics 8.4.107 lower-level adapter
 ```
 
-The live-specific conversion and OpenCV display stay in
-`01_WINDOWS_AI/live_tester/uncertainty_adapter.py` and `mc_dropout_adapter.py`. The
+The live-specific conversion stays in `01_WINDOWS_AI/live_tester/uncertainty_adapter.py`
+and `mc_dropout_adapter.py`; shared responsive TrueType rendering is in
+`presentation_ui.py`. The
 detector-independent core has no capture-loop, ROS 2, or file-output dependency; only
 the dedicated Ultralytics adapter imports the controlled inference stack lazily.
 

@@ -565,17 +565,43 @@ def localization_status(mean_reference_iou: float | None) -> str:
 
 
 def _interpret_dimensions(existence: str, classification: str, localization: str) -> str:
-    if classification == "UNCERTAIN" and existence == localization == "STABLE":
-        return "Existence stable; localization stable; classification uncertain"
-    if existence == classification == localization == "STABLE":
-        return "Model output stable across the stochastic passes"
-    if "UNSTABLE / REVIEW" in (existence, localization):
-        return "Model output unstable; review existence and localization dimensions"
-    if classification == "UNCERTAIN":
-        return "Classification uncertain; review competing model evidence"
-    if classification == "N/A":
-        return "No stochastic detections; class and localization statistics are N/A"
-    return "Model output variable across the stochastic passes"
+    """Describe only dimensions whose supplied status requires attention."""
+
+    dimensions = (
+        ("existence", existence),
+        ("classification", classification),
+        ("localization", localization),
+    )
+    if all(status == "STABLE" for _, status in dimensions):
+        return "Model output stable across the stochastic passes."
+    if classification == localization == "N/A":
+        return "No stochastic detections; classification and localization are unavailable."
+
+    findings: list[str] = []
+    stable: list[str] = []
+    for name, status in dimensions:
+        if status == "STABLE":
+            stable.append(name)
+        elif "UNSTABLE" in status:
+            findings.append(f"{name.capitalize()} unstable")
+        elif status == "UNCERTAIN":
+            findings.append(f"{name.capitalize()} uncertain")
+        elif status == "VARIABLE":
+            findings.append(f"{name.capitalize()} variable")
+        elif status == "N/A":
+            findings.append(f"{name.capitalize()} unavailable")
+        else:
+            findings.append(f"{name.capitalize()} requires review")
+
+    clauses = [*findings]
+    if stable:
+        stable_names = (
+            stable[0]
+            if len(stable) == 1
+            else f"{', '.join(stable[:-1])} and {stable[-1]}"
+        )
+        clauses.append(f"{stable_names} remain stable")
+    return "; ".join(clauses) + "."
 
 
 def calculate_mcdo_target(

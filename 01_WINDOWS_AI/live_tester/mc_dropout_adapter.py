@@ -4,11 +4,28 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Any, Sequence
 
 import numpy as np
 
-from .domain import PROJECT_ROOT, safe_overlay_text
+from .domain import PROJECT_ROOT
+from .presentation_ui import (
+    FontResolver,
+    PillowCanvas,
+    Rect,
+    THEME,
+    calculate_presentation_layout,
+    draw_page_footer,
+    draw_page_header,
+    draw_status_pill,
+    finite_metric,
+    paginate,
+    presentation_canvas_size,
+    ratio_text,
+    render_working_overlay,
+    share_text,
+    status_color,
+)
 from .uncertainty_adapter import InspectionView
 
 
@@ -21,18 +38,84 @@ from uav_uncertainty.mc_dropout_ultralytics import (  # noqa: E402
 )
 from uav_uncertainty.mc_dropout_v2 import (  # noqa: E402
     MCDOFrameAnalysis,
+    MCDOTargetResult,
     MCDOV2Config,
     run_mcdo_frame,
 )
 
 
+def _target_is_stable(target: MCDOTargetResult) -> bool:
+    return (
+        target.existence_status == "STABLE"
+        and target.classification_status == "STABLE"
+        and target.localization_status == "STABLE"
+    )
+
+
+def mcdo_frame_summary(
+    targets: Sequence[MCDOTargetResult],
+) -> tuple[int, int, str, str]:
+    """Return stable/review counts and a dimension-consistent frame reason."""
+
+    total = len(targets)
+    stable = sum(_target_is_stable(target) for target in targets)
+    review = total - stable
+    if not targets:
+        return (0, 0, "REVIEW", "FRAME REVIEW — no stochastic detections were observed.")
+    if review == 0:
+        return (
+            stable,
+            0,
+            "STABLE",
+            f"FRAME STABLE — all {total} target(s) are stable across the model passes.",
+        )
+
+    checks = (
+        (
+            "unstable existence",
+            lambda target: target.existence_status == "UNSTABLE / REVIEW",
+        ),
+        (
+            "unstable localization",
+            lambda target: target.localization_status == "UNSTABLE / REVIEW",
+        ),
+        (
+            "uncertain classification",
+            lambda target: target.classification_status == "UNCERTAIN",
+        ),
+        (
+            "variable model output",
+            lambda target: not _target_is_stable(target),
+        ),
+    )
+    for description, predicate in checks:
+        count = sum(bool(predicate(target)) for target in targets)
+        if count:
+            verb = "shows" if count == 1 else "show"
+            return (
+                stable,
+                review,
+                "REVIEW",
+                f"FRAME REVIEW — {count} of {total} targets {verb} {description}.",
+            )
+    raise AssertionError("review targets must have a visible review reason")
+
+
 class MCDOV2LiveInspector:
     """Run V2 only on an operator-selected copy of one exact frozen frame."""
 
-    def __init__(self, runner: Any, *, cv2_module: Any, config: MCDOV2Config) -> None:
+    def __init__(
+        self,
+        runner: Any,
+        *,
+        cv2_module: Any,
+        config: MCDOV2Config,
+        font_resolver: FontResolver | None = None,
+    ) -> None:
         self.runner = runner
         self.cv2 = cv2_module
         self.config = config
+        self.fonts = font_resolver or FontResolver()
 
     @classmethod
     def from_checkpoint(
@@ -80,305 +163,349 @@ class MCDOV2LiveInspector:
     def render_working(self, exact_frame: Any) -> Any:
         """Show the scientifically distinct same-frame V2 work state."""
 
-        frame = exact_frame.copy()
-        overlay = frame.copy()
-        self.cv2.rectangle(overlay, (0, 0), (frame.shape[1], 116), (12, 12, 12), -1)
-        self.cv2.addWeighted(overlay, 0.84, frame, 0.16, 0, frame)
-        self.cv2.putText(
-            frame,
-            "UNCERTAINTY INSPECTION - V2 MC DROPOUT",
-            (18, 34),
-            self.cv2.FONT_HERSHEY_SIMPLEX,
-            0.72,
-            (0, 220, 255),
-            2,
-            self.cv2.LINE_AA,
+        return render_working_overlay(
+            exact_frame,
+            title="V2 — MC DROPOUT MODEL UNCERTAINTY",
+            primary=(
+                f"Running {self.config.sample_count} stochastic model passes on the "
+                "same exact frame…"
+            ),
+            secondary=(
+                "6 Dropout2d · p = 0.20 · BatchNorm = evaluation · approximate "
+                "epistemic signal"
+            ),
+            fonts=self.fonts,
         )
-        self.cv2.putText(
-            frame,
-            f"Running {self.config.sample_count} stochastic passes on the same exact frame...",
-            (18, 69),
-            self.cv2.FONT_HERSHEY_SIMPLEX,
-            0.56,
-            (235, 235, 235),
-            1,
-            self.cv2.LINE_AA,
-        )
-        self.cv2.putText(
-            frame,
-            "6 Dropout2d p=0.20 active; BatchNorm remains in evaluation mode",
-            (18, 98),
-            self.cv2.FONT_HERSHEY_SIMPLEX,
-            0.48,
-            (175, 175, 175),
-            1,
-            self.cv2.LINE_AA,
-        )
-        return frame
 
     def inspect(self, exact_frame: Any) -> InspectionView:
         """Analyze and render one unchanged frame with the trusted V2 model."""
 
         frozen = exact_frame.copy()
         analysis = run_mcdo_frame(frozen, self.runner, self.config)
+        pages = self._render_analysis_pages(frozen, analysis)
         return InspectionView(
-            frame=self._render_analysis(frozen, analysis),
-            analysis=analysis,
-            status=analysis.status,
+            frame=pages[0], pages=pages, analysis=analysis, status=analysis.status
         )
 
     def _render_analysis(self, exact_frame: Any, analysis: MCDOFrameAnalysis) -> Any:
-        # Reserve every rendered row plus spacing before placing the fixed footer.
-        # The count-dependent rows are the winner and evidence distributions.
-        target_heights = [
-            344
-            + 20 * len(target.winner_class_distribution)
-            + 20 * len(target.class_evidence_share or {})
-            for target in analysis.targets
-        ]
-        canvas_height = max(820, 198 + sum(target_heights) + 74)
-        image_width = 850
-        panel_width = 700
-        canvas = np.full((canvas_height, image_width + panel_width, 3), 16, dtype=np.uint8)
-        height, width = exact_frame.shape[:2]
-        scale = min(image_width / width, (canvas_height - 70) / height)
-        resized_width = max(1, int(width * scale))
-        resized_height = max(1, int(height * scale))
-        resized = self.cv2.resize(exact_frame, (resized_width, resized_height))
-        offset_y = 58 + max(0, (canvas_height - 58 - resized_height) // 2)
-        canvas[offset_y : offset_y + resized_height, 0:resized_width] = resized
+        """Compatibility wrapper returning the first responsive page."""
 
-        palette = ((0, 220, 255), (80, 220, 100), (255, 165, 0), (255, 120, 210))
-        for index, target in enumerate(analysis.targets):
+        return self._render_analysis_pages(exact_frame, analysis)[0]
+
+    def _render_analysis_pages(
+        self, exact_frame: np.ndarray, analysis: MCDOFrameAnalysis
+    ) -> tuple[np.ndarray, ...]:
+        chunks = paginate(analysis.targets, 2)
+        stable_count, review_count, overall, reason = mcdo_frame_summary(
+            analysis.targets
+        )
+        rendered: list[np.ndarray] = []
+        for page_index, chunk in enumerate(chunks, start=1):
+            width, height = presentation_canvas_size(exact_frame.shape)
+            layout = calculate_presentation_layout(width, height, len(chunk))
+            base = np.full((height, width, 3), THEME.background[::-1], dtype=np.uint8)
+            canvas = PillowCanvas(base, fonts=self.fonts)
+            placement = canvas.paste_frozen_frame(
+                exact_frame, layout.image, radius=round(12 * layout.scale)
+            )
+            self._draw_reference_boxes(canvas, placement, analysis.targets)
+            draw_page_header(
+                canvas,
+                layout,
+                title="V2 — MC DROPOUT UNCERTAINTY",
+                subtitle=(
+                    f"Same frozen frame · {analysis.sample_count} stochastic passes · "
+                    "6 Dropout2d · p = 0.20 · BatchNorm = evaluation"
+                ),
+                method_tag="EPISTEMIC SIGNAL",
+            )
+            self._draw_summary(
+                canvas,
+                layout.summary,
+                total=len(analysis.targets),
+                stable=stable_count,
+                review=review_count,
+                overall=overall,
+                reason=reason,
+                scale=layout.scale,
+            )
+            if chunk:
+                for card, target in zip(layout.cards, chunk):
+                    self._draw_target_card(
+                        canvas, card, target=target, scale=layout.scale
+                    )
+            else:
+                self._draw_empty_card(canvas, layout.cards[0], scale=layout.scale)
+            draw_page_footer(
+                canvas,
+                layout,
+                page=page_index,
+                page_count=len(chunks),
+            )
+            rendered.append(canvas.render())
+        return tuple(rendered)
+
+    def _draw_reference_boxes(
+        self,
+        canvas: PillowCanvas,
+        placement: Any,
+        targets: Sequence[MCDOTargetResult],
+    ) -> None:
+        palette = (THEME.accent, THEME.stable, THEME.review, (208, 118, 222))
+        for index, target in enumerate(targets):
             if target.reference_bbox_xyxy is None:
                 continue
             x1, y1, x2, y2 = target.reference_bbox_xyxy
-            first = (int(x1 * scale), offset_y + int(y1 * scale))
-            second = (int(x2 * scale), offset_y + int(y2 * scale))
+            left = placement.x + round(x1 * placement.scale)
+            top = placement.y + round(y1 * placement.scale)
+            right = placement.x + round(x2 * placement.scale)
+            bottom = placement.y + round(y2 * placement.scale)
+            left = max(placement.x, min(left, placement.x + placement.width - 2))
+            right = max(left + 1, min(right, placement.x + placement.width - 1))
+            top = max(placement.y, min(top, placement.y + placement.height - 2))
+            bottom = max(top + 1, min(bottom, placement.y + placement.height - 1))
             color = palette[index % len(palette)]
-            self.cv2.rectangle(canvas, first, second, color, 2)
-            self.cv2.putText(
-                canvas,
-                target.target_id,
-                (first[0], max(offset_y + 18, first[1] - 7)),
-                self.cv2.FONT_HERSHEY_SIMPLEX,
-                0.52,
-                color,
-                2,
-                self.cv2.LINE_AA,
+            canvas.draw.rectangle(
+                (left, top, right, bottom),
+                outline=(*color, 255),
+                width=max(2, round(2 * min(placement.scale, 2.0))),
+            )
+            label_y = max(placement.y + 4, top - 22)
+            label_x = min(left, placement.x + placement.width - 92)
+            canvas.rectangle(
+                Rect(label_x, label_y, 92, 20), fill=(*color, 225), radius=4
+            )
+            canvas.text(
+                target.target_id.replace("_", " ").upper(),
+                label_x + 6,
+                label_y + 3,
+                size=10.5,
+                fill=(8, 14, 24),
+                bold=True,
+                max_width=80,
             )
 
-        self._text(
-            canvas,
-            "UNCERTAINTY INSPECTION - V2 MC DROPOUT",
-            18,
-            34,
-            (0, 220, 255),
-            0.72,
-            2,
-        )
-        panel_x = image_width + 20
-        self._text(canvas, "METHOD", panel_x, 32, (0, 220, 255), 0.55, 2)
-        self._text(canvas, "MC Dropout model uncertainty", panel_x, 57)
-        self._text(canvas, "Same exact frame", panel_x, 80)
-        self._text(
-            canvas,
-            f"{analysis.sample_count} stochastic model passes | 6 Dropout2d p=0.20",
-            panel_x,
-            103,
-        )
-        self._text(canvas, "BatchNorm remains in evaluation mode", panel_x, 126)
-        self._text(
-            canvas,
-            "Approximate model / epistemic uncertainty",
-            panel_x,
-            149,
-            (160, 160, 160),
-            0.44,
-        )
-        self._text(
-            canvas,
-            "Not calibrated probability of correctness",
-            panel_x,
-            170,
-            (160, 160, 160),
-            0.44,
-        )
-        y = 198
-        if not analysis.targets:
-            self._text(canvas, "No objects detected in any stochastic pass.", panel_x, y)
-            y += 25
-            self._text(canvas, "Winner agreement: N/A", panel_x, y)
-            y += 23
-            self._text(canvas, "Winner entropy: N/A", panel_x, y)
-            y += 23
-            self._text(canvas, "Evidence share: N/A", panel_x, y)
-
-        for target in analysis.targets:
-            self.cv2.line(
-                canvas,
-                (panel_x, y),
-                (image_width + panel_width - 20, y),
-                (65, 65, 65),
-                1,
-            )
-            y += 27
-            self._text(
-                canvas,
-                f"{target.target_id} | {safe_overlay_text(target.dominant_winner_class or 'N/A', 35)}",
-                panel_x,
-                y,
-                (235, 235, 235),
-                0.56,
-                2,
-            )
-            y += 25
-            self._text(
-                canvas,
-                f"Detected: {target.detected_count}/{target.sample_count} | persistence {target.persistence:.3f}",
-                panel_x,
-                y,
-            )
-            y += 23
-            self._text(
-                canvas,
-                f"Existence: {target.existence_status} | Class: {target.classification_status} | Localization: {target.localization_status}",
-                panel_x,
-                y,
-                (0, 210, 255) if target.classification_status == "UNCERTAIN" else (220, 220, 220),
-                0.44,
-            )
-            y += 25
-            self._text(canvas, "Winner classes:", panel_x, y, (190, 190, 190), 0.43)
-            for class_name, count in target.winner_class_distribution.items():
-                y += 20
-                self._text(
-                    canvas,
-                    f"  {safe_overlay_text(class_name, 34)}: {count}/{target.detected_count}",
-                    panel_x,
-                    y,
-                    (210, 210, 210),
-                    0.43,
-                )
-            y += 23
-            self._text(
-                canvas,
-                f"Winner agreement: {_format_metric(target.winner_class_agreement)} | entropy {_format_metric(target.winner_class_entropy_bits)} bits",
-                panel_x,
-                y,
-            )
-            y += 23
-            self._text(
-                canvas,
-                f"Competition: {target.competition_count}/{target.detected_count} | rate {_format_metric(target.competition_rate)}",
-                panel_x,
-                y,
-            )
-            y += 23
-            self._text(
-                canvas,
-                f"Winner confidence: mean {_format_metric(target.winner_confidence_mean)} | std {_format_metric(target.winner_confidence_std)}",
-                panel_x,
-                y,
-            )
-            y += 23
-            self._text(
-                canvas,
-                f"Predicted-box consistency: mean reference IoU {_format_metric(target.mean_reference_iou)} | min {_format_metric(target.minimum_reference_iou)}",
-                panel_x,
-                y,
-                scale=0.43,
-            )
-            y += 23
-            center = target.bbox_center_std_pixels
-            size = target.bbox_size_std_pixels
-            self._text(
-                canvas,
-                "Center std: N/A" if center is None else f"Center std: {center.x:.1f}, {center.y:.1f} px",
-                panel_x,
-                y,
-            )
-            y += 23
-            self._text(
-                canvas,
-                "Size std: N/A" if size is None else f"Size std: {size.x:.1f} x {size.y:.1f} px",
-                panel_x,
-                y,
-            )
-            y += 24
-            self._text(canvas, "EVIDENCE SHARE (not probability):", panel_x, y, (190, 190, 190), 0.43)
-            if target.class_evidence_share is None:
-                y += 20
-                self._text(canvas, "  N/A", panel_x, y, (190, 190, 190), 0.43)
-            else:
-                for class_name, share in target.class_evidence_share.items():
-                    y += 20
-                    self._text(
-                        canvas,
-                        f"  {safe_overlay_text(class_name, 34)} evidence share: {share:.3f}",
-                        panel_x,
-                        y,
-                        (190, 190, 190),
-                        0.43,
-                    )
-            y += 22
-            self._text(
-                canvas,
-                f"Evidence entropy: {_format_metric(target.evidence_entropy_bits)} bits",
-                panel_x,
-                y,
-            )
-            y += 23
-            self._text(
-                canvas,
-                safe_overlay_text(target.interpretation, 78),
-                panel_x,
-                y,
-                (0, 210, 255),
-                0.43,
-            )
-            y += 25
-
-        self._text(
-            canvas,
-            f"Interpretation: {analysis.status}",
-            panel_x,
-            canvas_height - 47,
-            (0, 220, 255),
-            0.48,
-            2,
-        )
-        self._text(
-            canvas,
-            "P / U / SPACE resume | S saves this inspection | Q exits",
-            panel_x,
-            canvas_height - 22,
-            (235, 235, 235),
-            0.48,
-        )
-        return canvas
-
-    def _text(
+    def _draw_summary(
         self,
-        image: Any,
-        text: str,
-        x: int,
-        y: int,
-        color: tuple[int, int, int] = (225, 225, 225),
-        scale: float = 0.47,
-        thickness: int = 1,
+        canvas: PillowCanvas,
+        rect: Rect,
+        *,
+        total: int,
+        stable: int,
+        review: int,
+        overall: str,
+        reason: str,
+        scale: float,
     ) -> None:
-        self.cv2.putText(
-            image,
-            safe_overlay_text(text, 105),
-            (x, y),
-            self.cv2.FONT_HERSHEY_SIMPLEX,
-            scale,
-            color,
-            thickness,
-            self.cv2.LINE_AA,
+        canvas.rectangle(
+            rect,
+            fill=(*THEME.surface, 255),
+            outline=(*THEME.border, 255),
+            radius=round(12 * scale),
         )
+        padding = round(14 * scale)
+        x = rect.x + padding
+        canvas.text(
+            "FRAME SUMMARY",
+            x,
+            rect.y + round(12 * scale),
+            size=11 * scale,
+            fill=THEME.muted,
+            bold=True,
+        )
+        draw_status_pill(
+            canvas,
+            overall,
+            x=rect.right - round(112 * scale),
+            y=rect.y + round(10 * scale),
+            size=10.5 * scale,
+            max_width=round(100 * scale),
+        )
+        metrics_y = rect.y + round(43 * scale)
+        values = (("TARGETS", total), ("STABLE", stable), ("REVIEW", review))
+        column_width = (rect.width - 2 * padding) // 3
+        for index, (label, value) in enumerate(values):
+            column_x = x + index * column_width
+            canvas.text(value, column_x, metrics_y, size=20 * scale, fill=THEME.text, bold=True)
+            canvas.text(
+                label,
+                column_x,
+                metrics_y + round(27 * scale),
+                size=9.5 * scale,
+                fill=THEME.muted,
+                bold=True,
+            )
+        reason_y = rect.y + round(88 * scale)
+        for line_index, line in enumerate(
+            canvas.wrapped_lines(
+                reason,
+                size=10.5 * scale,
+                max_width=rect.width - 2 * padding,
+                max_lines=2,
+                bold=True,
+            )
+        ):
+            canvas.text(
+                line,
+                x,
+                reason_y + line_index * round(15 * scale),
+                size=10.5 * scale,
+                fill=status_color(overall),
+                bold=True,
+            )
 
+    def _draw_target_card(
+        self,
+        canvas: PillowCanvas,
+        rect: Rect,
+        *,
+        target: MCDOTargetResult,
+        scale: float,
+    ) -> None:
+        canvas.rectangle(
+            rect,
+            fill=(*THEME.surface, 255),
+            outline=(*THEME.border, 255),
+            radius=round(12 * scale),
+        )
+        padding = round(13 * scale)
+        x = rect.x + padding
+        max_width = rect.width - 2 * padding
+        class_name = target.dominant_winner_class or "N/A"
+        canvas.text(
+            f"{target.target_id.replace('_', ' ').upper()}  |  {class_name}",
+            x,
+            rect.y + round(10 * scale),
+            size=13.5 * scale,
+            fill=THEME.text,
+            bold=True,
+            max_width=max_width,
+        )
+        statuses = (
+            ("EXISTENCE", target.existence_status),
+            ("CLASSIFICATION", target.classification_status),
+            ("LOCALIZATION", target.localization_status),
+        )
+        columns_y = rect.y + round(38 * scale)
+        column_width = max_width // 3
+        for index, (label, value) in enumerate(statuses):
+            column_x = x + index * column_width
+            canvas.text(
+                label,
+                column_x,
+                columns_y,
+                size=8.2 * scale,
+                fill=THEME.muted,
+                bold=True,
+                max_width=column_width - 5,
+            )
+            draw_status_pill(
+                canvas,
+                value,
+                x=column_x,
+                y=columns_y + round(13 * scale),
+                size=8.7 * scale,
+                max_width=column_width - round(6 * scale),
+            )
 
-def _format_metric(value: float | None) -> str:
-    return "N/A" if value is None else f"{value:.3f}"
+        line_height = round(16 * scale)
+        metrics_y = rect.y + round(78 * scale)
+        center = target.bbox_center_std_pixels
+        size = target.bbox_size_std_pixels
+        center_text = "N/A" if center is None else f"{center.x:.1f}/{center.y:.1f} px"
+        size_text = "N/A" if size is None else f"{size.x:.1f}/{size.y:.1f} px"
+        lines = (
+            (
+                f"Persistence: {target.detected_count}/{target.sample_count} "
+                f"({target.persistence:.3f})  ·  confidence "
+                f"{finite_metric(target.winner_confidence_mean)} ± "
+                f"{finite_metric(target.winner_confidence_std)}"
+            ),
+            (
+                "Winner mix: "
+                + ratio_text(
+                    target.winner_class_distribution,
+                    denominator=max(1, target.detected_count),
+                )
+            ),
+            (
+                f"Class entropy {finite_metric(target.winner_class_entropy_bits)} bits"
+                f"  ·  competition {finite_metric(target.competition_rate)}"
+            ),
+            (
+                f"Mean reference IoU {finite_metric(target.mean_reference_iou)}  ·  "
+                f"min {finite_metric(target.minimum_reference_iou)}"
+            ),
+            (
+                f"Center σ {center_text}"
+                f"  ·  Width/height σ {size_text}"
+            ),
+            (
+                f"Evidence share (not probability): {share_text(target.class_evidence_share)}  ·  "
+                f"entropy {finite_metric(target.evidence_entropy_bits)} bits"
+            ),
+        )
+        for index, line in enumerate(lines):
+            canvas.text(
+                line,
+                x,
+                metrics_y + index * line_height,
+                size=(11.0 if index < 4 else 9.7) * scale,
+                fill=THEME.text if index < 4 else THEME.muted,
+                max_width=max_width,
+            )
+        interpretation_y = rect.bottom - round(39 * scale)
+        for index, line in enumerate(
+            canvas.wrapped_lines(
+                target.interpretation,
+                size=9.2 * scale,
+                max_width=max_width,
+                max_lines=2,
+                bold=True,
+            )
+        ):
+            canvas.text(
+                line,
+                x,
+                interpretation_y + index * round(14 * scale),
+                size=9.2 * scale,
+                fill=status_color(
+                    "STABLE" if _target_is_stable(target) else "REVIEW"
+                ),
+                bold=True,
+            )
+
+    def _draw_empty_card(
+        self, canvas: PillowCanvas, rect: Rect, *, scale: float
+    ) -> None:
+        canvas.rectangle(
+            rect,
+            fill=(*THEME.surface, 255),
+            outline=(*THEME.border, 255),
+            radius=round(12 * scale),
+        )
+        x = rect.x + round(18 * scale)
+        canvas.text(
+            "NO STOCHASTIC DETECTIONS",
+            x,
+            rect.y + round(24 * scale),
+            size=16 * scale,
+            fill=THEME.text,
+            bold=True,
+        )
+        canvas.text(
+            "Existence, classification, and localization metrics are unavailable for this frame.",
+            x,
+            rect.y + round(60 * scale),
+            size=11 * scale,
+            fill=THEME.muted,
+            max_width=rect.width - round(36 * scale),
+        )
+        canvas.text(
+            "This is an approximate epistemic signal, not a calibrated correctness probability.",
+            x,
+            rect.y + round(86 * scale),
+            size=10 * scale,
+            fill=THEME.review,
+            max_width=rect.width - round(36 * scale),
+        )

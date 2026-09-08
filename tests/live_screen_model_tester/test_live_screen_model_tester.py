@@ -798,7 +798,7 @@ def test_inspection_failure_stays_paused_until_resume_and_replaces_stale_status(
     assert processor.last_inspection == "INSPECTION FAILED"
 
 
-def test_inspection_panel_expands_and_renders_box_size_variation() -> None:
+def test_v1_inspection_panel_paginates_without_shrinking_target_cards() -> None:
     import cv2
     import numpy as np
 
@@ -821,19 +821,12 @@ def test_inspection_panel_expands_and_renders_box_size_variation() -> None:
     inspector = tester.RobustnessInspector(
         detector, cv2_module=cv2, sample_count=2, seed=7
     )
-    rendered_text: list[str] = []
-    original_text = inspector._text
-
-    def record_text(image, text, *args, **kwargs):
-        rendered_text.append(text)
-        return original_text(image, text, *args, **kwargs)
-
-    inspector._text = record_text
     view = inspector.inspect(np.full((80, 120, 3), 127, dtype=np.uint8))
 
     assert detector.calls == 3
-    assert view.frame.shape[0] > 760
-    assert sum(text.startswith("Box std: size") for text in rendered_text) == 3
+    assert view.frame.shape == (720, 1280, 3)
+    assert len(view.pages) == 2
+    assert all(page.shape == (720, 1280, 3) for page in view.pages)
 
 
 def test_live_entrypoint_is_thin_and_delegates_to_package() -> None:
@@ -1160,7 +1153,7 @@ def test_hud_advertises_v2_selector_only_when_v2_is_available() -> None:
     assert any("uncertainty menu (1 V1 / 2 V2)" in line for line in FakeCV2.text)
 
 
-def test_v2_panel_reserves_space_for_competing_class_rows() -> None:
+def test_v2_panel_bounds_competing_classes_in_a_presentation_card() -> None:
     import numpy as np
 
     from uav_uncertainty.detection import Detection
@@ -1188,35 +1181,12 @@ def test_v2_panel_reserves_space_for_competing_class_rows() -> None:
         def prepare(self, exact_frame):
             return Session()
 
-    class FakeCV2:
-        FONT_HERSHEY_SIMPLEX = 0
-        LINE_AA = 0
-        text_rows: dict[str, int] = {}
-
-        rectangle = staticmethod(lambda *args: None)
-        addWeighted = staticmethod(lambda *args: None)
-        line = staticmethod(lambda *args: None)
-
-        @staticmethod
-        def resize(image, size):
-            return np.zeros((size[1], size[0], 3), dtype=np.uint8)
-
-        @classmethod
-        def putText(cls, image, text, position, *args):
-            cls.text_rows[text] = position[1]
-
     inspector = tester.MCDOV2LiveInspector(
-        Runner(), cv2_module=FakeCV2, config=MCDOV2Config(sample_count=2)
+        Runner(), cv2_module=object(), config=MCDOV2Config(sample_count=2)
     )
     view = inspector.inspect(np.zeros((80, 120, 3), dtype=np.uint8))
 
-    footer_y = FakeCV2.text_rows[
-        "P / U / SPACE resume | S saves this inspection | Q exits"
-    ]
-    evidence_y = next(
-        row
-        for text, row in FakeCV2.text_rows.items()
-        if text.startswith("Evidence entropy:")
-    )
-    assert view.frame.shape[0] >= 820
-    assert evidence_y < footer_y - 30
+    assert view.frame.shape == (720, 1280, 3)
+    assert len(view.pages) == 1
+    layout = tester.calculate_presentation_layout(1280, 720, 1)
+    assert layout.cards[0].bottom <= layout.footer.y

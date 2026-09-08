@@ -79,10 +79,10 @@ Future developments may include improved detection models, advanced threat asses
   conditional confidence/class/localization statistics must be read with persistence.
 - The `STABLE`, `INPUT-SENSITIVE`, and `UNSTABLE / REVIEW` bands are presentation
   thresholds for observed persistence, not accuracy or probability estimates.
-- The V2 MC Dropout runtime is implemented from the validated notebook, but the exact
-  trained external checkpoint was not present during integration. Until its provenance,
-  hash, six dropout placements, and real stochastic output are verified, V2 remains
-  unavailable. Repeated deterministic calls or V1 weights are not substitutes.
+- The V2 MC Dropout runtime and the registered external checkpoint have been manually
+  validated locally. A fresh checkout still has no weights: V2 remains unavailable until
+  `UAV_MCDO_V2_MODEL_PATH` points to that separately stored, hash-matching artifact.
+  Repeated deterministic calls or V1 weights are not substitutes.
 - MC Dropout output is an approximate model/epistemic uncertainty probe, not a calibrated
   correctness probability. Greedy IoU clustering can split or merge nearby objects.
 - The bridge retains a temporary configurable BTR label rewrite for compatibility. It

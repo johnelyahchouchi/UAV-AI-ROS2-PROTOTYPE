@@ -217,7 +217,7 @@ def _perform_uncertainty_inspection(
     failure_status: str,
     processor: FrameProcessor,
     cv2_module: Any,
-) -> Any | None:
+) -> tuple[Any, ...] | None:
     """Run one blocking on-demand method while keeping the live session recoverable."""
 
     working = inspector.render_working(frozen)
@@ -232,7 +232,8 @@ def _perform_uncertainty_inspection(
         return None
     processor.last_inspection = inspection.status
     print(f"Uncertainty inspection complete: {inspection.status}")
-    return inspection.frame
+    pages = tuple(getattr(inspection, "pages", ()) or ())
+    return pages or (inspection.frame,)
 
 
 def _run_preview_loop(
@@ -251,7 +252,8 @@ def _run_preview_loop(
     hud_visible = True
     last_raw_frame: Any | None = None
     last_frame: Any | None = None
-    inspection_frame: Any | None = None
+    inspection_pages: tuple[Any, ...] | None = None
+    inspection_page_index = 0
     selection_frame: Any | None = None
     selection_frozen: Any | None = None
     last_detection_count = 0
@@ -280,8 +282,8 @@ def _run_preview_loop(
 
             if selection_frame is not None:
                 display_frame = selection_frame.copy()
-            elif inspection_frame is not None:
-                display_frame = inspection_frame.copy()
+            elif inspection_pages is not None:
+                display_frame = inspection_pages[inspection_page_index].copy()
             elif last_frame is not None:
                 display_frame = last_frame.copy()
                 if paused and hud_visible:
@@ -337,7 +339,7 @@ def _run_preview_loop(
                         processor.last_inspection = failure_status
                         print(f"{method_label} is unavailable")
                     else:
-                        inspection_frame = _perform_uncertainty_inspection(
+                        inspection_pages = _perform_uncertainty_inspection(
                             selected,
                             frozen,
                             method_label=method_label,
@@ -345,17 +347,43 @@ def _run_preview_loop(
                             processor=processor,
                             cv2_module=cv2_module,
                         )
+                        inspection_page_index = 0
                 elif key in (ord("h"), ord("H")):
                     hud_visible = not hud_visible
                     print("HUD on" if hud_visible else "HUD off")
                 elif key in (ord("s"), ord("S")):
                     saved_path = screenshot_store.save(selection_frame, cv2_module)
                     print(f"Screenshot saved: {saved_path}")
+            elif (
+                inspection_pages is not None
+                and len(inspection_pages) > 1
+                and key in (ord("a"), ord("A"), ord("["))
+            ):
+                inspection_page_index = (inspection_page_index - 1) % len(
+                    inspection_pages
+                )
+                print(
+                    f"Uncertainty page {inspection_page_index + 1}/"
+                    f"{len(inspection_pages)}"
+                )
+            elif (
+                inspection_pages is not None
+                and len(inspection_pages) > 1
+                and key in (ord("d"), ord("D"), ord("]"))
+            ):
+                inspection_page_index = (inspection_page_index + 1) % len(
+                    inspection_pages
+                )
+                print(
+                    f"Uncertainty page {inspection_page_index + 1}/"
+                    f"{len(inspection_pages)}"
+                )
             elif key == 27:
                 break
             elif key in (ord("p"), ord("P"), 32):
-                if inspection_frame is not None:
-                    inspection_frame = None
+                if inspection_pages is not None:
+                    inspection_pages = None
+                    inspection_page_index = 0
                     paused = False
                     processor.tracker.reset_interval()
                     print("Resumed after uncertainty inspection")
@@ -365,8 +393,9 @@ def _run_preview_loop(
                         processor.tracker.reset_interval()
                     print("Paused" if paused else "Resumed")
             elif key in (ord("u"), ord("U")):
-                if inspection_frame is not None:
-                    inspection_frame = None
+                if inspection_pages is not None:
+                    inspection_pages = None
+                    inspection_page_index = 0
                     paused = False
                     processor.tracker.reset_interval()
                     print("Resumed after uncertainty inspection")
@@ -398,7 +427,7 @@ def _run_preview_loop(
                             "V2 unavailable - configure UAV_MCDO_V2_MODEL_PATH; "
                             "running V1 directly"
                         )
-                        inspection_frame = _perform_uncertainty_inspection(
+                        inspection_pages = _perform_uncertainty_inspection(
                             uncertainty_inspector,
                             frozen,
                             method_label="V1 input-perturbation robustness",
@@ -406,11 +435,16 @@ def _run_preview_loop(
                             processor=processor,
                             cv2_module=cv2_module,
                         )
+                        inspection_page_index = 0
             elif key in (ord("h"), ord("H")):
                 hud_visible = not hud_visible
                 print("HUD on" if hud_visible else "HUD off")
             elif key in (ord("s"), ord("S")):
-                frame_to_save = inspection_frame if inspection_frame is not None else last_frame
+                frame_to_save = (
+                    inspection_pages[inspection_page_index]
+                    if inspection_pages is not None
+                    else last_frame
+                )
                 if frame_to_save is None:
                     print("No frame is available to save yet.")
                 else:
