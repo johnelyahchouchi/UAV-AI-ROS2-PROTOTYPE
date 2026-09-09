@@ -31,6 +31,28 @@ The browser-based recorded-analysis dashboard also needs its requirements from
 `01_WINDOWS_AI/model_test_dashboard/requirements.txt`, installed with the supplied
 constraints file so the verified CUDA/Ultralytics stack is not replaced.
 
+## Editable branding
+
+Header text is kept in one small file:
+
+```text
+01_WINDOWS_AI\control_center\branding.json
+```
+
+Edit `title`, `subtitle`, `author`, or `internship_period`, then restart the control
+center. The `logo_path` value is relative to the JSON file unless an absolute path is
+used. `logo_max_width` and `logo_max_height` control the displayed size. The
+dark-header logo is stored at:
+
+```text
+01_WINDOWS_AI\control_center\assets\additess_logo_dark.png
+```
+
+Replace that PNG while keeping the same filename to update the logo without changing
+code. A wide image with a transparent or dark background works best. If the image is
+missing or unreadable, the header falls back to a plain `ADDITESS` text label so the
+dashboard still opens.
+
 ## GUI sections
 
 ### Dashboard

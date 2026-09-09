@@ -1,5 +1,6 @@
 """Desktop control center for the Windows UAV prototype applications."""
 
+from .branding import Branding, load_branding
 from .configuration import (
     ControlCenterError,
     DashboardSettings,

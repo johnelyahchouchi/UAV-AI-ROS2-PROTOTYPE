@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 from dataclasses import asdict, fields
 import importlib.util
 import os
@@ -15,9 +16,12 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from typing import Any, TypeVar
 
+from PIL import Image, ImageChops, ImageTk
+
 from uav_security.model_integrity import ModelIntegrityError, verify_trusted_model
 from uav_security.source_urls import source_log_label
 
+from .branding import Branding, load_branding
 from .configuration import (
     DASHBOARD_LAUNCHER,
     LIVE_TESTER_SCRIPT,
@@ -64,14 +68,65 @@ def _load_dataclass(model: type[T], payload: Any) -> T:
     return model(**defaults)
 
 
+def _enable_windows_dpi_awareness() -> None:
+    """Keep the desktop layout crisp and correctly sized on scaled Windows displays."""
+
+    if os.name != "nt":
+        return
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(2)
+    except (AttributeError, OSError):
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except (AttributeError, OSError):
+            pass
+
+
+def _prepare_brand_logo_image(branding: Branding) -> Image.Image:
+    """Prepare a smooth, tightly cropped logo for the dark application header."""
+
+    with Image.open(branding.logo_path) as source:
+        logo = source.convert("RGBA")
+
+    alpha = logo.getchannel("A")
+    corner = logo.getpixel((0, 0))
+    if alpha.getextrema() == (255, 255) and max(corner[:3]) < 64:
+        red, green, blue, _ = logo.split()
+        peak = ImageChops.lighter(red, ImageChops.lighter(green, blue))
+        alpha = peak.point(
+            lambda value: max(0, min(255, round((value - 42) * 4.5)))
+        )
+        logo.putalpha(alpha)
+
+    bounds = logo.getchannel("A").getbbox()
+    if bounds is None:
+        raise ValueError("Configured logo is fully transparent")
+    left, top, right, bottom = bounds
+    horizontal_padding = max(6, (right - left) // 80)
+    vertical_padding = max(4, (bottom - top) // 14)
+    logo = logo.crop(
+        (
+            max(0, left - horizontal_padding),
+            max(0, top - vertical_padding),
+            min(logo.width, right + horizontal_padding),
+            min(logo.height, bottom + vertical_padding),
+        )
+    )
+    resampling = getattr(Image, "Resampling", Image).LANCZOS
+    logo.thumbnail((branding.logo_max_width, branding.logo_max_height), resampling)
+    return logo
+
+
 class UAVPrototypeControlCenter:
     """Single desktop surface for the maintained Windows-side applications."""
 
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
-        self.root.title("UAV AI Prototype Control Center")
-        self.root.geometry("1280x820")
-        self.root.minsize(1100, 700)
+        self.branding = load_branding()
+        self.brand_logo: ImageTk.PhotoImage | None = None
+        self.root.title(self.branding.title)
+        self.root.geometry("1280x860")
+        self.root.minsize(1100, 760)
         self.root.configure(bg=COLORS["page"])
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
@@ -139,7 +194,25 @@ class UAVPrototypeControlCenter:
             "Header.TLabel",
             background=COLORS["page"],
             foreground=COLORS["text"],
-            font=("Segoe UI Semibold", 22),
+            font=("Segoe UI Semibold", 21),
+        )
+        style.configure(
+            "BrandSubtitle.TLabel",
+            background=COLORS["page"],
+            foreground=COLORS["cyan"],
+            font=("Segoe UI Semibold", 9),
+        )
+        style.configure(
+            "BrandAuthor.TLabel",
+            background=COLORS["page"],
+            foreground=COLORS["text"],
+            font=("Segoe UI Semibold", 9),
+        )
+        style.configure(
+            "BrandPeriod.TLabel",
+            background=COLORS["page"],
+            foreground=COLORS["muted"],
+            font=("Segoe UI", 9),
         )
         style.configure(
             "CardTitle.TLabel",
@@ -239,29 +312,79 @@ class UAVPrototypeControlCenter:
         )
 
     def _build_shell(self) -> None:
-        header = ttk.Frame(self.root, padding=(22, 16, 22, 10))
+        header = ttk.Frame(self.root, padding=(22, 14, 22, 12))
         header.pack(fill="x")
-        ttk.Label(header, text="UAV AI Prototype", style="Header.TLabel").pack(
-            side="left"
-        )
+        for column in range(3):
+            header.columnconfigure(column, weight=1, uniform="header")
+
+        brand = ttk.Frame(header)
+        brand.grid(row=0, column=0, sticky="nw")
+        self.brand_logo = self._load_brand_logo(self.branding)
+        if self.brand_logo is not None:
+            tk.Label(
+                brand,
+                image=self.brand_logo,
+                background=COLORS["page"],
+                borderwidth=0,
+                padx=0,
+                pady=0,
+            ).pack(anchor="w")
+        else:
+            ttk.Label(
+                brand,
+                text="ADDITESS",
+                style="BrandSubtitle.TLabel",
+            ).pack(anchor="w")
+        metadata = ttk.Frame(brand)
+        metadata.pack(anchor="w", pady=(7, 0), padx=(3, 0))
+        tk.Frame(
+            metadata,
+            background=COLORS["cyan"],
+            width=3,
+            height=38,
+        ).pack(side="left", fill="y", padx=(0, 9))
+        metadata_text = ttk.Frame(metadata)
+        metadata_text.pack(side="left")
         ttk.Label(
-            header,
-            text="CONTROL CENTER  •  LOCAL / ADVISORY",
-            foreground=COLORS["cyan"],
-            font=("Segoe UI Semibold", 9),
-        ).pack(side="left", padx=18, pady=(8, 0))
+            metadata_text,
+            text=f"by {self.branding.author}",
+            style="BrandAuthor.TLabel",
+        ).pack(anchor="w")
+        ttk.Label(
+            metadata_text,
+            text=self.branding.internship_period,
+            style="BrandPeriod.TLabel",
+        ).pack(anchor="w", pady=(2, 0))
+
+        title_area = ttk.Frame(header)
+        title_area.grid(row=0, column=1, sticky="nsew", padx=18, pady=(8, 0))
+        ttk.Label(
+            title_area,
+            text=self.branding.title,
+            style="Header.TLabel",
+            anchor="center",
+        ).pack(fill="x")
+        ttk.Label(
+            title_area,
+            text=self.branding.subtitle.upper(),
+            style="BrandSubtitle.TLabel",
+            anchor="center",
+        ).pack(fill="x", pady=(5, 0))
+
+        actions = ttk.Frame(header)
+        actions.grid(row=0, column=2, sticky="ne", pady=(8, 0))
         ttk.Button(
-            header,
-            text="Stop all",
-            style="Danger.TButton",
-            command=self.stop_all,
-        ).pack(side="right")
-        ttk.Button(
-            header,
+            actions,
             text="Save settings",
             style="Secondary.TButton",
             command=self.save_settings,
-        ).pack(side="right", padx=8)
+        ).pack(side="left", padx=(0, 8))
+        ttk.Button(
+            actions,
+            text="Stop all",
+            style="Danger.TButton",
+            command=self.stop_all,
+        ).pack(side="left")
 
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill="both", expand=True, padx=18, pady=(0, 10))
@@ -292,6 +415,15 @@ class UAVPrototypeControlCenter:
             text="No model weights, media, credentials, or generated outputs are committed",
             style="Muted.TLabel",
         ).pack(side="right")
+
+    def _load_brand_logo(self, branding: Branding) -> ImageTk.PhotoImage | None:
+        """Load and scale the configured logo while preserving its aspect ratio."""
+
+        try:
+            logo = _prepare_brand_logo_image(branding)
+        except (OSError, ValueError):
+            return None
+        return ImageTk.PhotoImage(logo, master=self.root)
 
     def _build_dashboard(self) -> None:
         tab = self.dashboard_tab
@@ -516,7 +648,7 @@ class UAVPrototypeControlCenter:
         tab = self.mission_tab
         tab.columnconfigure(0, weight=1)
         ttk.Label(tab, text="Deterministic Mission Copilot", font=("Segoe UI Semibold", 17)).grid(row=0, column=0, sticky="w")
-        ttk.Label(tab, text="Offline advisory planning only—no PX4, actuator, velocity or flight-control outputs.", style="Muted.TLabel").grid(row=1, column=0, sticky="w", pady=(2, 14))
+        ttk.Label(tab, text="Offline advisory planning only. No PX4, actuator, velocity or flight-control outputs.", style="Muted.TLabel").grid(row=1, column=0, sticky="w", pady=(2, 14))
         panel = ttk.LabelFrame(tab, text="Mission inputs", padding=16)
         panel.grid(row=2, column=0, sticky="nsew")
         panel.columnconfigure(1, weight=1)
@@ -696,12 +828,12 @@ class UAVPrototypeControlCenter:
         self.card_processes.set(", ".join(active) if active else "No processes")
 
         rows: list[tuple[str, str]] = []
-        rows.append(("READY" if Path(sys.executable).is_file() else "ERROR", f"Python — {sys.executable}"))
+        rows.append(("READY" if Path(sys.executable).is_file() else "ERROR", f"Python: {sys.executable}"))
         rows.append(("READY" if LIVE_TESTER_SCRIPT.is_file() else "ERROR", "Live tester entry point"))
         rows.append(("READY" if DASHBOARD_LAUNCHER.is_file() else "ERROR", "Recorded-analysis dashboard"))
         dashboard_modules = ("gradio", "cv2", "ultralytics", "torch")
         missing = [name for name in dashboard_modules if importlib.util.find_spec(name) is None]
-        rows.append(("READY" if not missing else "SETUP", "Dashboard dependencies" + ("" if not missing else f" — missing {', '.join(missing)}")))
+        rows.append(("READY" if not missing else "SETUP", "Dashboard dependencies" + ("" if not missing else f": missing {', '.join(missing)}")))
         try:
             dashboard_environment = build_dashboard_environment(
                 self.current_dashboard_settings()
@@ -709,25 +841,25 @@ class UAVPrototypeControlCenter:
             rows.append(
                 (
                     "READY",
-                    f"Recorded dashboard — http://127.0.0.1:{dashboard_environment['UAV_DASHBOARD_PORT']}",
+                    f"Recorded dashboard: http://127.0.0.1:{dashboard_environment['UAV_DASHBOARD_PORT']}",
                 )
             )
         except ControlCenterError as error:
             rows.append(("BLOCKED", str(error)))
         for label, path in (("Base detector", live.model_path), ("V2 checkpoint", live.mcdo_model_path)):
             if not path.strip():
-                rows.append(("SETUP", f"{label} — not selected"))
+                rows.append(("SETUP", f"{label}: not selected"))
                 continue
             try:
                 digest = self._verify_model(path, live.registry_path)
-                rows.append(("TRUSTED", f"{label} — SHA-256 {digest}…"))
+                rows.append(("TRUSTED", f"{label}: SHA-256 {digest}…"))
             except (ModelIntegrityError, OSError) as error:
-                rows.append(("BLOCKED", f"{label} — {error}"))
+                rows.append(("BLOCKED", f"{label}: {error}"))
         if live.source_mode == VIDEO_FILE:
             ready = Path(live.video_path).expanduser().is_file()
             rows.append(("READY" if ready else "SETUP", "Video file source"))
         else:
-            rows.append(("READY", f"Source mode — {live.source_mode}"))
+            rows.append(("READY", f"Source mode: {live.source_mode}"))
         mission = Path(str(self.mission_vars["scenario_path"].get())).expanduser()
         rows.append(("READY" if mission.is_file() else "SETUP", "Mission Copilot scenario"))
 
@@ -939,6 +1071,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="UAV AI Prototype Control Center")
     parser.add_argument("--smoke-test", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    _enable_windows_dpi_awareness()
     root = tk.Tk()
     if args.smoke_test:
         root.withdraw()
