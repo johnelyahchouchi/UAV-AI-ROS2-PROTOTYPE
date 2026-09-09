@@ -10,6 +10,10 @@ import time
 from typing import Any, Callable
 
 from .configuration import choose_preview_position
+from .continuous_uncertainty import (
+    ContinuousUncertaintyController,
+    ContinuousWorkspaceRenderer,
+)
 from .domain import (
     CaptureRegion,
     DetectorProtocol,
@@ -95,6 +99,7 @@ class FrameProcessor:
         source_label: str | None = None,
         uncertainty_available: bool = True,
         mcdo_v2_available: bool = False,
+        continuous_uncertainty: bool = False,
         tracker: PerformanceTracker | None = None,
         clock: Callable[[], float] = time.perf_counter,
     ) -> None:
@@ -107,6 +112,7 @@ class FrameProcessor:
         self.source_label = source_label
         self.uncertainty_available = uncertainty_available
         self.mcdo_v2_available = mcdo_v2_available
+        self.continuous_uncertainty = continuous_uncertainty
         self.tracker = tracker or PerformanceTracker()
         self.clock = clock
         self.last_inspection: str | None = None
@@ -144,6 +150,7 @@ class FrameProcessor:
                 last_inspection=self.last_inspection,
                 uncertainty_available=self.uncertainty_available,
                 mcdo_v2_available=self.mcdo_v2_available,
+                continuous_uncertainty=self.continuous_uncertainty,
             )
         return FrameOutcome(annotated, displayed, metrics)
 
@@ -245,6 +252,8 @@ def _run_preview_loop(
     cv2_module: Any,
     uncertainty_inspector: MethodSelectorProtocol | None,
     mcdo_v2_inspector: InspectorProtocol | None,
+    continuous_controller: ContinuousUncertaintyController | None,
+    continuous_renderer: ContinuousWorkspaceRenderer | None,
     clock: Callable[[], float],
     sleeper: Callable[[float], None],
 ) -> None:
@@ -257,209 +266,242 @@ def _run_preview_loop(
     selection_frame: Any | None = None
     selection_frozen: Any | None = None
     last_detection_count = 0
+    last_metrics = FrameMetrics()
+    frame_number = 0
 
-    with source:
-        while True:
-            loop_started = clock()
-            if not paused:
-                capture_started = clock()
-                try:
-                    frame = source.read()
-                except VideoSourceEnded:
-                    print("Video reached the end; closing preview.")
-                    break
-                capture_ms = (clock() - capture_started) * 1000.0
-                last_raw_frame = frame.copy()
-                outcome = processor.process(
-                    frame,
-                    capture_ms=capture_ms,
-                    frame_started_at=loop_started,
-                    frame_timestamp=loop_started,
-                    hud_visible=hud_visible,
-                )
-                last_frame = outcome.annotated_frame
-                last_detection_count = len(outcome.detections)
-
-            if selection_frame is not None:
-                display_frame = selection_frame.copy()
-            elif inspection_pages is not None:
-                display_frame = inspection_pages[inspection_page_index].copy()
-            elif last_frame is not None:
-                display_frame = last_frame.copy()
-                if paused and hud_visible:
-                    processor.renderer.draw_hud(
-                        display_frame,
-                        metrics=processor.tracker.snapshot(),
-                        model_name=processor.model_name,
-                        region=processor.region,
-                        device=processor.device,
-                        detection_count=last_detection_count,
-                        source_label=processor.source_label,
-                        paused=True,
-                        last_inspection=processor.last_inspection,
-                        uncertainty_available=getattr(
-                            processor,
-                            "uncertainty_available",
-                            uncertainty_inspector is not None,
-                        ),
-                        mcdo_v2_available=getattr(
-                            processor,
-                            "mcdo_v2_available",
-                            mcdo_v2_inspector is not None,
-                        ),
+    try:
+        with source:
+            while True:
+                loop_started = clock()
+                if not paused:
+                    capture_started = clock()
+                    try:
+                        frame = source.read()
+                    except VideoSourceEnded:
+                        print("Video reached the end; closing preview.")
+                        break
+                    capture_ms = (clock() - capture_started) * 1000.0
+                    last_raw_frame = frame.copy()
+                    outcome = processor.process(
+                        frame,
+                        capture_ms=capture_ms,
+                        frame_started_at=loop_started,
+                        frame_timestamp=loop_started,
+                        hud_visible=hud_visible,
                     )
-            else:
-                display_frame = None
-            if display_frame is not None:
-                cv2_module.imshow(WINDOW_NAME, display_frame)
-
-            key = cv2_module.waitKey(30 if paused else 1) & 0xFF
-            if key in (ord("q"), ord("Q")):
-                break
-            if selection_frame is not None:
-                if key in (27, 32, ord("u"), ord("U"), ord("p"), ord("P")):
-                    selection_frame = None
-                    selection_frozen = None
-                    paused = False
-                    processor.tracker.reset_interval()
-                    print("Uncertainty selection cancelled; resumed")
-                elif key in (ord("1"), ord("2")) and selection_frozen is not None:
-                    if key == ord("1"):
-                        selected = uncertainty_inspector
-                        method_label = "V1 input-perturbation robustness"
-                        failure_status = "V1 INSPECTION FAILED"
-                    else:
-                        selected = mcdo_v2_inspector
-                        method_label = "V2 MC Dropout model uncertainty"
-                        failure_status = "V2 INSPECTION FAILED"
-                    frozen = selection_frozen.copy()
-                    selection_frame = None
-                    selection_frozen = None
-                    if selected is None:
-                        processor.last_inspection = failure_status
-                        print(f"{method_label} is unavailable")
-                    else:
-                        inspection_pages = _perform_uncertainty_inspection(
-                            selected,
-                            frozen,
-                            method_label=method_label,
-                            failure_status=failure_status,
-                            processor=processor,
-                            cv2_module=cv2_module,
+                    frame_number += 1
+                    last_frame = outcome.annotated_frame
+                    last_detection_count = len(outcome.detections)
+                    last_metrics = outcome.metrics
+                    if continuous_controller is not None:
+                        continuous_controller.submit(
+                            last_raw_frame,
+                            frame_number=frame_number,
+                            now=loop_started,
                         )
+
+                if selection_frame is not None:
+                    display_frame = selection_frame.copy()
+                elif inspection_pages is not None:
+                    display_frame = inspection_pages[inspection_page_index].copy()
+                elif last_frame is not None:
+                    display_frame = last_frame.copy()
+                    if paused and hud_visible:
+                        processor.renderer.draw_hud(
+                            display_frame,
+                            metrics=processor.tracker.snapshot(),
+                            model_name=processor.model_name,
+                            region=processor.region,
+                            device=processor.device,
+                            detection_count=last_detection_count,
+                            source_label=processor.source_label,
+                            paused=True,
+                            last_inspection=processor.last_inspection,
+                            uncertainty_available=getattr(
+                                processor,
+                                "uncertainty_available",
+                                uncertainty_inspector is not None,
+                            ),
+                            mcdo_v2_available=getattr(
+                                processor,
+                                "mcdo_v2_available",
+                                mcdo_v2_inspector is not None,
+                            ),
+                            continuous_uncertainty=continuous_controller is not None,
+                        )
+                    if continuous_controller is not None and continuous_renderer is not None:
+                        display_frame = continuous_renderer.render(
+                            display_frame,
+                            continuous_controller.snapshot(),
+                            metrics=last_metrics,
+                            model_name=processor.model_name,
+                            device=processor.device,
+                            source_label=(
+                                processor.source_label
+                                or f"region {processor.region.left},{processor.region.top} "
+                                f"{processor.region.width}x{processor.region.height}"
+                            ),
+                            detection_count=last_detection_count,
+                            interval_seconds=continuous_controller.interval_seconds,
+                            paused=paused,
+                            now=loop_started,
+                            exact_inspection_available=uncertainty_inspector is not None,
+                        )
+                else:
+                    display_frame = None
+                if display_frame is not None:
+                    cv2_module.imshow(WINDOW_NAME, display_frame)
+
+                key = cv2_module.waitKey(30 if paused else 1) & 0xFF
+                if key in (ord("q"), ord("Q")):
+                    break
+                if selection_frame is not None:
+                    if key in (27, 32, ord("u"), ord("U"), ord("p"), ord("P")):
+                        selection_frame = None
+                        selection_frozen = None
+                        paused = False
+                        processor.tracker.reset_interval()
+                        print("Uncertainty selection cancelled; resumed")
+                    elif key in (ord("1"), ord("2")) and selection_frozen is not None:
+                        if key == ord("1"):
+                            selected = uncertainty_inspector
+                            method_label = "V1 input-perturbation robustness"
+                            failure_status = "V1 INSPECTION FAILED"
+                        else:
+                            selected = mcdo_v2_inspector
+                            method_label = "V2 MC Dropout model uncertainty"
+                            failure_status = "V2 INSPECTION FAILED"
+                        frozen = selection_frozen.copy()
+                        selection_frame = None
+                        selection_frozen = None
+                        if selected is None:
+                            processor.last_inspection = failure_status
+                            print(f"{method_label} is unavailable")
+                        else:
+                            inspection_pages = _perform_uncertainty_inspection(
+                                selected,
+                                frozen,
+                                method_label=method_label,
+                                failure_status=failure_status,
+                                processor=processor,
+                                cv2_module=cv2_module,
+                            )
+                            inspection_page_index = 0
+                    elif key in (ord("h"), ord("H")):
+                        hud_visible = not hud_visible
+                        print("HUD on" if hud_visible else "HUD off")
+                    elif key in (ord("s"), ord("S")):
+                        saved_path = screenshot_store.save(selection_frame, cv2_module)
+                        print(f"Screenshot saved: {saved_path}")
+                elif (
+                    inspection_pages is not None
+                    and len(inspection_pages) > 1
+                    and key in (ord("a"), ord("A"), ord("["))
+                ):
+                    inspection_page_index = (inspection_page_index - 1) % len(
+                        inspection_pages
+                    )
+                    print(
+                        f"Uncertainty page {inspection_page_index + 1}/"
+                        f"{len(inspection_pages)}"
+                    )
+                elif (
+                    inspection_pages is not None
+                    and len(inspection_pages) > 1
+                    and key in (ord("d"), ord("D"), ord("]"))
+                ):
+                    inspection_page_index = (inspection_page_index + 1) % len(
+                        inspection_pages
+                    )
+                    print(
+                        f"Uncertainty page {inspection_page_index + 1}/"
+                        f"{len(inspection_pages)}"
+                    )
+                elif key == 27:
+                    break
+                elif key in (ord("p"), ord("P"), 32):
+                    if inspection_pages is not None:
+                        inspection_pages = None
                         inspection_page_index = 0
+                        paused = False
+                        processor.tracker.reset_interval()
+                        print("Resumed after uncertainty inspection")
+                    elif key != 32:
+                        paused = not paused
+                        if not paused:
+                            processor.tracker.reset_interval()
+                        print("Paused" if paused else "Resumed")
+                elif key in (ord("u"), ord("U")):
+                    if inspection_pages is not None:
+                        inspection_pages = None
+                        inspection_page_index = 0
+                        paused = False
+                        processor.tracker.reset_interval()
+                        print("Resumed after uncertainty inspection")
+                    elif uncertainty_inspector is None:
+                        print("Uncertainty inspection is disabled.")
+                    elif last_raw_frame is None:
+                        print("No frame is available to inspect yet.")
+                    else:
+                        paused = True
+                        frozen = last_raw_frame.copy()
+                        if mcdo_v2_inspector is not None:
+                            v2_samples = int(
+                                getattr(
+                                    getattr(mcdo_v2_inspector, "config", None),
+                                    "sample_count",
+                                    20,
+                                )
+                            )
+                            selection_frozen = frozen
+                            selection_frame = uncertainty_inspector.render_selection(
+                                frozen, v2_sample_count=v2_samples
+                            )
+                            print(
+                                "Frozen-frame uncertainty menu: 1 = V1 input robustness, "
+                                "2 = V2 MC Dropout, ESC/Space = resume"
+                            )
+                        else:
+                            print(
+                                "V2 unavailable - configure UAV_MCDO_V2_MODEL_PATH; "
+                                "running V1 directly"
+                            )
+                            inspection_pages = _perform_uncertainty_inspection(
+                                uncertainty_inspector,
+                                frozen,
+                                method_label="V1 input-perturbation robustness",
+                                failure_status="INSPECTION FAILED",
+                                processor=processor,
+                                cv2_module=cv2_module,
+                            )
+                            inspection_page_index = 0
                 elif key in (ord("h"), ord("H")):
                     hud_visible = not hud_visible
                     print("HUD on" if hud_visible else "HUD off")
                 elif key in (ord("s"), ord("S")):
-                    saved_path = screenshot_store.save(selection_frame, cv2_module)
-                    print(f"Screenshot saved: {saved_path}")
-            elif (
-                inspection_pages is not None
-                and len(inspection_pages) > 1
-                and key in (ord("a"), ord("A"), ord("["))
-            ):
-                inspection_page_index = (inspection_page_index - 1) % len(
-                    inspection_pages
-                )
-                print(
-                    f"Uncertainty page {inspection_page_index + 1}/"
-                    f"{len(inspection_pages)}"
-                )
-            elif (
-                inspection_pages is not None
-                and len(inspection_pages) > 1
-                and key in (ord("d"), ord("D"), ord("]"))
-            ):
-                inspection_page_index = (inspection_page_index + 1) % len(
-                    inspection_pages
-                )
-                print(
-                    f"Uncertainty page {inspection_page_index + 1}/"
-                    f"{len(inspection_pages)}"
-                )
-            elif key == 27:
-                break
-            elif key in (ord("p"), ord("P"), 32):
-                if inspection_pages is not None:
-                    inspection_pages = None
-                    inspection_page_index = 0
-                    paused = False
-                    processor.tracker.reset_interval()
-                    print("Resumed after uncertainty inspection")
-                elif key != 32:
-                    paused = not paused
-                    if not paused:
-                        processor.tracker.reset_interval()
-                    print("Paused" if paused else "Resumed")
-            elif key in (ord("u"), ord("U")):
-                if inspection_pages is not None:
-                    inspection_pages = None
-                    inspection_page_index = 0
-                    paused = False
-                    processor.tracker.reset_interval()
-                    print("Resumed after uncertainty inspection")
-                elif uncertainty_inspector is None:
-                    print("Uncertainty inspection is disabled.")
-                elif last_raw_frame is None:
-                    print("No frame is available to inspect yet.")
-                else:
-                    paused = True
-                    frozen = last_raw_frame.copy()
-                    if mcdo_v2_inspector is not None:
-                        v2_samples = int(
-                            getattr(
-                                getattr(mcdo_v2_inspector, "config", None),
-                                "sample_count",
-                                20,
-                            )
-                        )
-                        selection_frozen = frozen
-                        selection_frame = uncertainty_inspector.render_selection(
-                            frozen, v2_sample_count=v2_samples
-                        )
-                        print(
-                            "Frozen-frame uncertainty menu: 1 = V1 input robustness, "
-                            "2 = V2 MC Dropout, ESC/Space = resume"
-                        )
+                    frame_to_save = (
+                        inspection_pages[inspection_page_index]
+                        if inspection_pages is not None
+                        else display_frame
+                    )
+                    if frame_to_save is None:
+                        print("No frame is available to save yet.")
                     else:
-                        print(
-                            "V2 unavailable - configure UAV_MCDO_V2_MODEL_PATH; "
-                            "running V1 directly"
-                        )
-                        inspection_pages = _perform_uncertainty_inspection(
-                            uncertainty_inspector,
-                            frozen,
-                            method_label="V1 input-perturbation robustness",
-                            failure_status="INSPECTION FAILED",
-                            processor=processor,
-                            cv2_module=cv2_module,
-                        )
-                        inspection_page_index = 0
-            elif key in (ord("h"), ord("H")):
-                hud_visible = not hud_visible
-                print("HUD on" if hud_visible else "HUD off")
-            elif key in (ord("s"), ord("S")):
-                frame_to_save = (
-                    inspection_pages[inspection_page_index]
-                    if inspection_pages is not None
-                    else last_frame
-                )
-                if frame_to_save is None:
-                    print("No frame is available to save yet.")
-                else:
-                    saved_path = screenshot_store.save(frame_to_save, cv2_module)
-                    print(f"Screenshot saved: {saved_path}")
+                        saved_path = screenshot_store.save(frame_to_save, cv2_module)
+                        print(f"Screenshot saved: {saved_path}")
 
-            try:
-                if cv2_module.getWindowProperty(WINDOW_NAME, cv2_module.WND_PROP_VISIBLE) < 1:
-                    break
-            except Exception:
-                pass
-            if target_period > 0 and not paused:
-                delay = target_period - (clock() - loop_started)
-                if delay > 0:
-                    sleeper(delay)
+                try:
+                    if cv2_module.getWindowProperty(WINDOW_NAME, cv2_module.WND_PROP_VISIBLE) < 1:
+                        break
+                except Exception:
+                    pass
+                if target_period > 0 and not paused:
+                    delay = target_period - (clock() - loop_started)
+                    if delay > 0:
+                        sleeper(delay)
+    finally:
+        if continuous_controller is not None:
+            continuous_controller.close()
 
 
 def run_live_preview(
@@ -472,6 +514,8 @@ def run_live_preview(
     cv2_module: Any,
     uncertainty_inspector: MethodSelectorProtocol | None = None,
     mcdo_v2_inspector: InspectorProtocol | None = None,
+    continuous_controller: ContinuousUncertaintyController | None = None,
+    continuous_renderer: ContinuousWorkspaceRenderer | None = None,
     source_factory: Callable[[CaptureRegion], Any] = MSSScreenSource,
     clock: Callable[[], float] = time.perf_counter,
     sleeper: Callable[[float], None] = time.sleep,
@@ -499,6 +543,8 @@ def run_live_preview(
             cv2_module=cv2_module,
             uncertainty_inspector=uncertainty_inspector,
             mcdo_v2_inspector=mcdo_v2_inspector,
+            continuous_controller=continuous_controller,
+            continuous_renderer=continuous_renderer,
             clock=clock,
             sleeper=sleeper,
         )
@@ -524,6 +570,8 @@ def run_video_preview(
     cv2_module: Any,
     uncertainty_inspector: MethodSelectorProtocol | None = None,
     mcdo_v2_inspector: InspectorProtocol | None = None,
+    continuous_controller: ContinuousUncertaintyController | None = None,
+    continuous_renderer: ContinuousWorkspaceRenderer | None = None,
     clock: Callable[[], float] = time.perf_counter,
     sleeper: Callable[[float], None] = time.sleep,
 ) -> None:
@@ -544,6 +592,8 @@ def run_video_preview(
             cv2_module=cv2_module,
             uncertainty_inspector=uncertainty_inspector,
             mcdo_v2_inspector=mcdo_v2_inspector,
+            continuous_controller=continuous_controller,
+            continuous_renderer=continuous_renderer,
             clock=clock,
             sleeper=sleeper,
         )

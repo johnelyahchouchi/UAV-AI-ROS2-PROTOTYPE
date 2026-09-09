@@ -86,7 +86,9 @@ Every maintained live tester option is configurable:
 The GUI verifies the configured checkpoint digest before launch. The existing runtime
 performs the authoritative architecture check and refuses required V2 when the six
 validated `Dropout2d(p=0.20)` placements are absent. Normal playback remains one YOLO
-pass per frame; repeated V1/V2 work begins only after `U` freezes the exact raw frame.
+pass per displayed frame. When continuous uncertainty is enabled, periodic copied raw
+frames refresh separate V1 and V2 cards in a background worker. `U` remains an optional
+detailed exact-frame report.
 
 ### Secure Sender
 

@@ -117,6 +117,7 @@ class RendererProtocol(Protocol):
         last_inspection: str | None = None,
         uncertainty_available: bool = True,
         mcdo_v2_available: bool = False,
+        continuous_uncertainty: bool = False,
     ) -> Any:
         """Draw operational status information onto a frame."""
 

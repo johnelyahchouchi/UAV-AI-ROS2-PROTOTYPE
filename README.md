@@ -12,10 +12,10 @@ local image / MP4 / Windows screen
 trusted Ultralytics YOLO detector
         ├── recorded model testing
         └── live screen/video tester (one pass/frame, FPS + latency)
-                    ↓ press U on one exact frame
-              on-demand uncertainty
-                 ├── V1 input robustness (input changes)
-                 └── V2 MC Dropout (same input; model masks change)
+                    ├── automatic sampled uncertainty panels
+                    │      ├── V1 input robustness (input changes)
+                    │      └── V2 MC Dropout (same input; model masks change)
+                    └── optional U exact-frame detailed report
                             ↓
                 transparent per-target metrics
 
@@ -26,8 +26,9 @@ Windows perception sender ── mutual TLS/TCP ── ROS 2 bridge
 JSON mission snapshot ── deterministic Mission Copilot ── safe recommendations
 ```
 
-The live path uses one detector inference per frame. Repeated uncertainty analysis
-happens only after the operator presses `U`; it never runs in the normal capture loop.
+The live path keeps one base detector inference per displayed frame. When continuous
+uncertainty is enabled, a background worker periodically copies the latest raw frame
+and refreshes separate V1 and V2 cards without blocking capture or building a backlog.
 
 ## Full Windows GUI
 
@@ -60,16 +61,20 @@ For a dedicated V2 run without pre-setting model paths, double-click
 trusted base detector, the validated external V2 checkpoint, and the MP4, and refuses
 to fall back silently when V2 validation fails.
 
-The launcher opens a native MP4 picker and loops the chosen video. Controls:
+The launcher opens a native MP4 picker, loops the chosen video, and starts the unified
+live detection plus uncertainty workspace. Controls:
 
-- `U`: freeze the current raw frame. With validated V2 loaded, choose `1` for V1 or
-  `2` for V2; otherwise V1 runs directly and the console explains how to enable V2.
+- V1 and V2 refresh automatically in separate panels. V2 remains visibly unavailable
+  unless its validated external checkpoint is loaded.
+- `U`: optional detailed exact-frame report. With V2 loaded, choose `1` for V1 or `2`
+  for V2; otherwise V1 runs directly.
 - `P`, `U`, or Space: leave an inspection and resume; `P` also pauses normally.
 - `S`: save the current live or inspection view under `08_OUTPUTS/`.
 - `H`: toggle the compact HUD. `Q` or Esc exits.
 
-Normal live output shows boxes, labels, confidence, displayed FPS, capture time, and
-inference latency. See [the full demo guide](07_DOCUMENTATION/LIVE_SCREEN_MODEL_TESTER.md).
+Normal live output shows boxes, labels, confidence, displayed FPS, capture time,
+inference latency, V1 input-stability metrics, and V2 model-output metrics in one view.
+See [the full demo guide](07_DOCUMENTATION/LIVE_SCREEN_MODEL_TESTER.md).
 
 Recommended demo cases are: a clear positive target, a small/compressed/partial positive
 target, and an ordinary-traffic/scenery negative control. Provide local media; do not

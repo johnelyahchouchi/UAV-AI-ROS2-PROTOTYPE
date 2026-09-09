@@ -24,6 +24,10 @@ from .configuration import (
 )
 from .detector import YoloDetector
 from .domain import CaptureRegion, TesterError, VideoMetadata, parse_class_filter
+from .continuous_uncertainty import (
+    ContinuousUncertaintyController,
+    ContinuousWorkspaceRenderer,
+)
 from .mc_dropout_adapter import MCDOV2LiveInspector
 from .renderer import OverlayRenderer
 from .runtime import (
@@ -113,6 +117,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         mcdo_unavailable_reason = (
             "configure UAV_MCDO_V2_MODEL_PATH with the validated external checkpoint"
         )
+        mcdo_panel_reason = "Validated external V2 checkpoint is not configured"
         if uncertainty_available:
             try:
                 mcdo_model_path = resolve_mcdo_v2_model_path(
@@ -138,6 +143,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                     )
                 except (ModelIntegrityError, TesterError, ValueError, RuntimeError) as error:
                     mcdo_unavailable_reason = str(error)
+                    mcdo_panel_reason = (
+                        "Selected V2 checkpoint failed trust or architecture validation; "
+                        "see the console"
+                    )
         if args.require_mcdo_v2 and mcdo_inspector is None:
             raise TesterError(
                 f"V2 MC Dropout is required but unavailable: {mcdo_unavailable_reason}"
@@ -152,6 +161,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             source_label=(f"video {video_path.name}" if video_path else None),
             uncertainty_available=uncertainty_available,
             mcdo_v2_available=mcdo_inspector is not None,
+            continuous_uncertainty=args.continuous_uncertainty,
         )
         screenshot_store = ScreenshotStore(args.output_dir)
         inspector = None
@@ -163,6 +173,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 seed=args.uncertainty_seed,
                 match_iou=args.uncertainty_match_iou,
             )
+        continuous_controller = None
+        continuous_renderer = None
+        if args.continuous_uncertainty and inspector is not None:
+            continuous_controller = ContinuousUncertaintyController(
+                inspector,
+                mcdo_inspector,
+                interval_seconds=args.continuous_uncertainty_interval,
+                v2_unavailable_reason=mcdo_panel_reason,
+            )
+            continuous_renderer = ContinuousWorkspaceRenderer()
 
         filter_summary = (
             "all" if allowed_classes is None else ", ".join(sorted(allowed_classes))
@@ -222,6 +242,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"{report.dropout_probability:.2f}; "
                     f"{report.batchnorm_count} BatchNorm eval"
                 )
+            if continuous_controller is not None:
+                print(
+                    "Continuous uncertainty workspace: enabled; V1 and V2 panels "
+                    f"sample the latest raw frame every {args.continuous_uncertainty_interval:g} s"
+                )
+                print(
+                    "Normal playback keeps one base detection pass per displayed frame; "
+                    "sampled uncertainty work runs asynchronously without a frame backlog"
+                )
 
         if args.test_frame:
             saved = run_test_frame(
@@ -238,6 +267,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cv2_module=cv2,
                 uncertainty_inspector=inspector,
                 mcdo_v2_inspector=mcdo_inspector,
+                continuous_controller=continuous_controller,
+                continuous_renderer=continuous_renderer,
             )
             return 0
         run_live_preview(
@@ -249,6 +280,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             cv2_module=cv2,
             uncertainty_inspector=inspector,
             mcdo_v2_inspector=mcdo_inspector,
+            continuous_controller=continuous_controller,
+            continuous_renderer=continuous_renderer,
         )
         return 0
     except (TesterError, ModelIntegrityError, ValueError) as error:

@@ -17,8 +17,9 @@ code lives under `01_WINDOWS_AI/live_tester/`:
 | `detector.py` | SHA-256 verification before trusted YOLO loading and one-pass detection. |
 | `renderer.py` | Detection boxes and compact performance HUD. |
 | `runtime.py` | Frame processing, rolling timings, keyboard loop, screenshots. |
-| `uncertainty_adapter.py` | On-demand V1 conversion and inspection display. |
-| `mc_dropout_adapter.py` | On-demand validated V2 loading and inspection display. |
+| `continuous_uncertainty.py` | Latest-frame worker and unified live V1/V2 workspace. |
+| `uncertainty_adapter.py` | V1 analysis and detailed inspection display. |
+| `mc_dropout_adapter.py` | Validated V2 analysis and detailed inspection display. |
 | `app.py` | Composition and console summary. |
 
 The uncertainty core is separately testable under `08_MODEL_UNCERTAINTY/src/`.
@@ -52,7 +53,7 @@ Equivalent explicit examples:
 
 ```powershell
 & $env:UAV_YOLO_PYTHON .\01_WINDOWS_AI\apps\live_screen_model_tester.py `
-  --video "D:\media\demo.mp4" --loop-video
+  --video "D:\media\demo.mp4" --loop-video --continuous-uncertainty
 
 & $env:UAV_YOLO_PYTHON .\01_WINDOWS_AI\apps\live_screen_model_tester.py `
   --monitor 1 --select-region --device auto
@@ -81,14 +82,34 @@ Class filters affect display only. `--tank-only` shows `military_tank`; `--class
 `all` or a comma-separated list. Capture a smaller region or lower `--imgsz` when the
 presentation machine needs lower latency.
 
+## Continuous V1/V2 workspace
+
+`--continuous-uncertainty` composes one 16:9 operator view with the annotated live
+video on the left and separate V1 and V2 cards on the right. The first raw-frame copy
+is sampled automatically. Later cycles start no faster than
+`--continuous-uncertainty-interval` seconds, which defaults to 2 seconds.
+
+Only one uncertainty cycle can run at a time. If it is still working when another
+interval arrives, the older worker is allowed to finish and no stale frames are queued.
+V1 runs first and V2 follows on the same copied frame. Each panel independently shows
+waiting, queued, analyzing, ready, unavailable, or failed state, the sampled frame
+number, update age, analysis duration, method-specific metrics, and scientific scope.
+A V1 or V2 error is contained in its card while normal live detection continues.
+
+The base playback path still calls the normal detector exactly once per displayed
+frame. Continuous V1 uses extra predictions on a periodic copied frame and V2 uses its
+own validated repeated-pass model, so their compute load can reduce achieved FPS on a
+busy GPU even though the capture/UI loop is not synchronously blocked. Increase the
+refresh interval or reduce sample counts if needed for the presentation computer.
+
 ## Controls
 
 - `Q` or Esc: exit cleanly.
 - `P`: pause/resume normal playback.
 - `S`: save the current live frame or uncertainty inspection.
 - `H`: show/hide the normal HUD.
-- `U`: freeze a copy of the exact current raw frame. If V2 is validated and loaded,
-  open the method menu; otherwise run V1 directly.
+- `U`: optional detailed report on a copy of the exact current raw frame. If V2 is
+  validated and loaded, open the method menu; otherwise run V1 directly.
 - `1` in the method menu: V1 input-perturbation robustness.
 - `2` in the method menu: V2 MC Dropout model uncertainty.
 - Esc or Space in the method menu: cancel and resume.
@@ -99,7 +120,7 @@ presentation machine needs lower latency.
 Screenshots use unique timestamped names under `08_OUTPUTS/live_screen_tester/` by
 default. The output tree is ignored by Git.
 
-## On-demand uncertainty sequence
+## Optional detailed uncertainty sequence
 
 Pressing `U` copies the last raw frame before its live annotations, pauses capture/video
 decoding, displays a working notice, runs one clean inference plus the configured input
@@ -145,13 +166,13 @@ deterministic repeats as a substitute.
 
 1. Launch the BAT file and select a local MP4.
 2. Confirm the trusted model hash is printed and CUDA is selected when available.
-3. Confirm video continues, boxes/labels/confidence appear, and FPS/latency update.
-4. Press `U`; without V2, confirm V1 runs directly on the frozen frame.
-5. With validated V2 configured, press `U`, choose `1`, and review V1 metrics.
-6. Resume, press `U`, choose `2`, and confirm 20 same-frame V2 passes complete.
-7. Review the separate existence, class, confidence, competition, and localization data.
-8. Press `S` if an inspection screenshot is needed.
-9. Press `P`, `U`, or Space and confirm video and fresh FPS timing resume.
+3. Confirm video, boxes, labels, confidence, FPS, and latency remain visible on the left.
+4. Confirm the V1 card moves from analyzing to a populated input-stability result.
+5. With validated V2 configured, confirm its separate card populates after V1.
+6. Without V2, confirm that card clearly says unavailable and no substitute result appears.
+7. Review existence, class, confidence, competition, and localization dimensions.
+8. Optionally press `U` and choose a full detailed report for the exact current frame.
+9. Press `S` if a full-workspace or detailed-report screenshot is needed.
 10. Press `Q` and confirm a clean exit.
 
 Recommended inputs:
@@ -187,8 +208,10 @@ It uses fakes and needs no monitor, real model, GPU, ROS 2, camera, or network.
   mode. A full single-monitor capture cannot exclude its own window.
 - **Black/protected content:** some hardware overlays, elevated windows, and protected
   video surfaces cannot be captured by MSS; use direct local MP4 decoding.
-- **Slow `U` analysis:** repeated passes are intentionally synchronous on the frozen
-  frame. Lower `--uncertainty-samples` for a shorter demonstration, but keep at least 1.
+- **Low FPS during live panels:** increase `--continuous-uncertainty-interval`, reduce
+  V1/V2 sample counts, or lower image size. The worker does not queue stale frames.
+- **Slow `U` analysis:** the optional detailed report is intentionally synchronous on
+  the frozen frame. Lower `--uncertainty-samples` if appropriate, but keep at least 1.
 - **V2 unavailable:** set `UAV_MCDO_V2_MODEL_PATH` to the separately stored validated
   checkpoint. If using a different artifact, verify its provenance and register its real
   SHA-256 first. Do not point this variable at V1 weights.

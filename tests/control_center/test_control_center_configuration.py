@@ -57,6 +57,8 @@ def test_live_command_exposes_video_inference_and_v1_v2_options(tmp_path: Path) 
         output_directory=str(tmp_path / "output"),
         registry_path=str(registry),
         uncertainty_enabled=True,
+        continuous_uncertainty=True,
+        continuous_interval="1.5",
         uncertainty_samples="12",
         uncertainty_seed="7",
         uncertainty_match_iou="0.4",
@@ -75,6 +77,8 @@ def test_live_command_exposes_video_inference_and_v1_v2_options(tmp_path: Path) 
     assert "--loop-video" in command
     assert "--require-mcdo-v2" in command
     assert "--uncertainty-samples" in command
+    assert "--continuous-uncertainty" in command
+    assert command[command.index("--continuous-uncertainty-interval") + 1] == "1.5"
     parsed = build_parser().parse_args(command[3:])
     assert parsed.mcdo_v2_passes == 25
     assert parsed.require_mcdo_v2 is True

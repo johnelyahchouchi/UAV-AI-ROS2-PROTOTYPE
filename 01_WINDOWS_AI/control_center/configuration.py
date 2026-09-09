@@ -65,6 +65,8 @@ class LiveTesterSettings:
     output_directory: str = ""
     registry_path: str = os.environ.get("UAV_TRUSTED_MODEL_REGISTRY", "")
     uncertainty_enabled: bool = True
+    continuous_uncertainty: bool = True
+    continuous_interval: str = "2.0"
     uncertainty_samples: str = "10"
     uncertainty_seed: str = "42"
     uncertainty_match_iou: str = "0.50"
@@ -256,6 +258,20 @@ def build_live_tester_command(
             str(match_iou),
         )
     )
+    if settings.continuous_uncertainty:
+        interval = _number(
+            settings.continuous_interval,
+            "Continuous uncertainty interval",
+            0.25,
+            300.0,
+        )
+        command.extend(
+            (
+                "--continuous-uncertainty",
+                "--continuous-uncertainty-interval",
+                str(interval),
+            )
+        )
     if settings.mcdo_enabled:
         mcdo_model = _existing_file(
             settings.mcdo_model_path, "V2 MC Dropout checkpoint", ".pt"

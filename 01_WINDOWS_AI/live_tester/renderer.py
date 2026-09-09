@@ -88,6 +88,7 @@ class OverlayRenderer:
         last_inspection: str | None = None,
         uncertainty_available: bool = True,
         mcdo_v2_available: bool = False,
+        continuous_uncertainty: bool = False,
     ) -> Any:
         source_text = source_label or (
             f"region {region.left},{region.top} {region.width}x{region.height}"
@@ -100,6 +101,9 @@ class OverlayRenderer:
             f"detections {detection_count}",
             safe_overlay_text(source_text, 88),
             (
+                "Q/ESC quit | P pause | S screenshot | H HUD | uncertainty panels live | U detailed report"
+                if continuous_uncertainty and uncertainty_available
+                else
                 "Q/ESC quit | P pause | S screenshot | H HUD | U uncertainty menu (1 V1 / 2 V2)"
                 if uncertainty_available and mcdo_v2_available
                 else "Q/ESC quit | P pause | S screenshot | H HUD | U inspect V1 robustness"

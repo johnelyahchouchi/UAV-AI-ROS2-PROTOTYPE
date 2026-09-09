@@ -41,8 +41,9 @@ if "%~1"=="" (
   )
 
   echo Select an MP4 video in the file picker to start continuous detection.
-  echo Controls: Q or ESC quit, P pause, S screenshot, H HUD, U V1 robustness.
-  "%UAV_YOLO_PYTHON%" "%LIVE_TESTER%" --select-video --loop-video
+  echo The live window shows detections with automatically refreshed V1 and V2 panels.
+  echo Controls: Q or ESC quit, P pause, S screenshot, H HUD, U detailed report.
+  "%UAV_YOLO_PYTHON%" "%LIVE_TESTER%" --select-video --loop-video --continuous-uncertainty
 ) else (
   "%UAV_YOLO_PYTHON%" "%LIVE_TESTER%" %*
 )

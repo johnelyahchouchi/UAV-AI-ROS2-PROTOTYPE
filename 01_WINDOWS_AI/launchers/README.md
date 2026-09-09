@@ -14,9 +14,11 @@ because it is a separate batch-analysis application. All launchers resolve repos
 code relative to their own location, use the verified `UAV_YOLO_PYTHON`, and avoid
 workstation usernames or company-network defaults.
 
-The live launcher inherits optional `UAV_MCDO_V2_MODEL_PATH`. When that separate
-external checkpoint passes the trusted-hash and six-layer architecture checks, `U`
-opens the V1/V2 method menu. Without it, `U` continues to run V1 directly.
+The live launcher enables the continuous uncertainty workspace and inherits optional
+`UAV_MCDO_V2_MODEL_PATH`. V1 and V2 occupy separate live cards. When the external V2
+checkpoint passes the trusted-hash and six-layer architecture checks, the V2 card
+updates automatically; otherwise it remains explicitly unavailable. `U` is optional
+and opens the detailed exact-frame method report.
 
 For a V2-focused local run after cloning or pulling the repository, double-click
 `Start_MC_Dropout_V2.bat`. It does not require model or video environment variables:

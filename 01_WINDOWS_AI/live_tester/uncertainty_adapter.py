@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import sys
+import threading
 from typing import Any, Protocol
 
 import numpy as np
@@ -136,7 +137,7 @@ def _v1_frame_reason(
 
 
 class RobustnessInspector:
-    """Run V1 robustness only when the operator explicitly presses U."""
+    """Run V1 robustness on an exact frame for live or detailed inspection."""
 
     def __init__(
         self,
@@ -154,6 +155,7 @@ class RobustnessInspector:
         self.seed = seed
         self.match_iou = match_iou
         self.fonts = font_resolver or FontResolver()
+        self._analysis_lock = threading.Lock()
 
     def render_working(self, exact_frame: Any) -> Any:
         """Overlay a clear status while the first analysis pass starts."""
@@ -184,22 +186,32 @@ class RobustnessInspector:
     def inspect(self, exact_frame: Any) -> InspectionView:
         """Analyze the exact frame copy and render transparent per-target metrics."""
 
+        analyzed = self.analyze(exact_frame)
         frozen = exact_frame.copy()
-        analysis = analyze_image(
-            frozen,
-            self.detector,
-            sample_count=self.sample_count,
-            seed=self.seed,
-            match_iou=self.match_iou,
-        )
-        status = overall_status(
-            analysis.baseline_metrics,
-            perturbed_only_count=len(analysis.perturbed_only_metrics),
-        )
+        analysis = analyzed.analysis
+        status = analyzed.status
         pages = self._render_analysis_pages(frozen, analysis, status)
         return InspectionView(
             frame=pages[0], pages=pages, analysis=analysis, status=status
         )
+
+    def analyze(self, exact_frame: Any) -> InspectionView:
+        """Calculate V1 metrics without constructing full-page presentation images."""
+
+        frozen = exact_frame.copy()
+        with self._analysis_lock:
+            analysis = analyze_image(
+                frozen,
+                self.detector,
+                sample_count=self.sample_count,
+                seed=self.seed,
+                match_iou=self.match_iou,
+            )
+        status = overall_status(
+            analysis.baseline_metrics,
+            perturbed_only_count=len(analysis.perturbed_only_metrics),
+        )
+        return InspectionView(frame=frozen, analysis=analysis, status=status)
 
     def _render_analysis(
         self, exact_frame: Any, analysis: ImageAnalysis, status: str

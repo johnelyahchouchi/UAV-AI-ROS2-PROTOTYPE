@@ -374,6 +374,13 @@ def validate_numeric_options(args: argparse.Namespace) -> None:
         raise TesterError("--mcdo-v2-passes must be between 1 and 100")
     if not 0.0 < args.mcdo_v2_match_iou <= 1.0:
         raise TesterError("--mcdo-v2-match-iou must be greater than 0 and at most 1")
+    if (
+        not math.isfinite(args.continuous_uncertainty_interval)
+        or not 0.25 <= args.continuous_uncertainty_interval <= 300.0
+    ):
+        raise TesterError(
+            "--continuous-uncertainty-interval must be between 0.25 and 300 seconds"
+        )
 
     video_mode = args.video is not None or args.auto_video or args.select_video
     manual_region = any(
@@ -396,6 +403,14 @@ def validate_numeric_options(args: argparse.Namespace) -> None:
     if args.select_mcdo_v2_model and (args.disable_uncertainty or args.test_frame):
         raise TesterError(
             "--select-mcdo-v2-model requires an interactive live or video session"
+        )
+    if args.continuous_uncertainty and args.disable_uncertainty:
+        raise TesterError(
+            "--continuous-uncertainty cannot be combined with --disable-uncertainty"
+        )
+    if args.continuous_uncertainty and args.test_frame:
+        raise TesterError(
+            "--continuous-uncertainty requires an interactive live or video session"
         )
 
 
@@ -432,7 +447,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Read a local MP4 or capture a Windows desktop region, run a trusted "
             "YOLO model, and inspect V1 input robustness or validated V2 MC "
-            "Dropout model uncertainty on demand."
+            "Dropout model uncertainty either continuously or on demand."
         )
     )
     model_group = parser.add_mutually_exclusive_group()
@@ -496,6 +511,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--disable-uncertainty",
         action="store_true",
         help="Hide the U-key uncertainty inspector",
+    )
+    parser.add_argument(
+        "--continuous-uncertainty",
+        action="store_true",
+        help="Show live detections with asynchronously refreshed V1 and V2 panels",
+    )
+    parser.add_argument(
+        "--continuous-uncertainty-interval",
+        type=float,
+        default=2.0,
+        help="Minimum seconds between sampled continuous uncertainty cycles",
     )
     return parser
 

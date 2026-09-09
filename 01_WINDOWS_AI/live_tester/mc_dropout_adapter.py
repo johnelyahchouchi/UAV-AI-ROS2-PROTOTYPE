@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+import threading
 from typing import Any, Sequence
 
 import numpy as np
@@ -102,7 +103,7 @@ def mcdo_frame_summary(
 
 
 class MCDOV2LiveInspector:
-    """Run V2 only on an operator-selected copy of one exact frozen frame."""
+    """Run validated V2 on an exact frame for live or detailed inspection."""
 
     def __init__(
         self,
@@ -116,6 +117,7 @@ class MCDOV2LiveInspector:
         self.cv2 = cv2_module
         self.config = config
         self.fonts = font_resolver or FontResolver()
+        self._analysis_lock = threading.Lock()
 
     @classmethod
     def from_checkpoint(
@@ -180,12 +182,21 @@ class MCDOV2LiveInspector:
     def inspect(self, exact_frame: Any) -> InspectionView:
         """Analyze and render one unchanged frame with the trusted V2 model."""
 
+        analyzed = self.analyze(exact_frame)
         frozen = exact_frame.copy()
-        analysis = run_mcdo_frame(frozen, self.runner, self.config)
+        analysis = analyzed.analysis
         pages = self._render_analysis_pages(frozen, analysis)
         return InspectionView(
             frame=pages[0], pages=pages, analysis=analysis, status=analysis.status
         )
+
+    def analyze(self, exact_frame: Any) -> InspectionView:
+        """Calculate V2 metrics without constructing full-page presentation images."""
+
+        frozen = exact_frame.copy()
+        with self._analysis_lock:
+            analysis = run_mcdo_frame(frozen, self.runner, self.config)
+        return InspectionView(frame=frozen, analysis=analysis, status=analysis.status)
 
     def _render_analysis(self, exact_frame: Any, analysis: MCDOFrameAnalysis) -> Any:
         """Compatibility wrapper returning the first responsive page."""

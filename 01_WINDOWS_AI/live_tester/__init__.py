@@ -17,6 +17,12 @@ from .configuration import (
     validate_numeric_options,
 )
 from .detector import YoloDetector
+from .continuous_uncertainty import (
+    ContinuousSnapshot,
+    ContinuousUncertaintyController,
+    ContinuousWorkspaceRenderer,
+    MethodSnapshot,
+)
 from .domain import (
     CaptureRegion,
     DetectionResult,

@@ -550,7 +550,7 @@ class UAVPrototypeControlCenter:
         )
         ttk.Label(
             tab,
-            text="Configure every maintained live tester option. V1 and V2 run only on demand after U freezes the exact frame.",
+            text="Live detections remain visible while separate V1 and V2 panels refresh automatically. U opens an optional exact-frame report.",
             style="Muted.TLabel",
         ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(2, 14))
 
@@ -580,23 +580,25 @@ class UAVPrototypeControlCenter:
         self._entry(inference, 7, "Output directory", self.live_vars["output_directory"], lambda: self._browse_directory(self.live_vars["output_directory"], "Select output directory"))
         self._entry(inference, 8, "Trusted-model registry", self.live_vars["registry_path"], lambda: self._browse_file(self.live_vars["registry_path"], "Select trusted-model registry", (("CSV registry", "*.csv"),)))
 
-        uncertainty = ttk.LabelFrame(tab, text="Uncertainty inspection", padding=12)
+        uncertainty = ttk.LabelFrame(tab, text="Live uncertainty workspace", padding=12)
         uncertainty.grid(row=2, column=2, sticky="nsew", padx=(7, 0))
-        self._check(uncertainty, 0, "Enable U-key inspection", self.live_vars["uncertainty_enabled"])
-        self._entry(uncertainty, 1, "V1 perturbation samples", self.live_vars["uncertainty_samples"], width=14)
-        self._entry(uncertainty, 2, "V1 deterministic seed", self.live_vars["uncertainty_seed"], width=14)
-        self._entry(uncertainty, 3, "V1 matching IoU", self.live_vars["uncertainty_match_iou"], width=14)
-        ttk.Separator(uncertainty).grid(row=8, column=0, columnspan=3, sticky="ew", pady=10)
-        self._check(uncertainty, 5, "Enable V2 MC Dropout", self.live_vars["mcdo_enabled"])
-        self._check(uncertainty, 6, "Require V2 validation", self.live_vars["mcdo_required"])
-        self._entry(uncertainty, 7, "V2 stochastic passes", self.live_vars["mcdo_passes"], width=14)
-        self._entry(uncertainty, 8, "V2 matching IoU", self.live_vars["mcdo_match_iou"], width=14)
+        self._check(uncertainty, 0, "Enable uncertainty tools", self.live_vars["uncertainty_enabled"])
+        self._check(uncertainty, 1, "Show continuous V1/V2 panels", self.live_vars["continuous_uncertainty"])
+        self._entry(uncertainty, 2, "Panel refresh interval (seconds)", self.live_vars["continuous_interval"], width=14)
+        self._entry(uncertainty, 3, "V1 perturbation samples", self.live_vars["uncertainty_samples"], width=14)
+        self._entry(uncertainty, 4, "V1 deterministic seed", self.live_vars["uncertainty_seed"], width=14)
+        self._entry(uncertainty, 5, "V1 matching IoU", self.live_vars["uncertainty_match_iou"], width=14)
+        ttk.Separator(uncertainty).grid(row=12, column=0, columnspan=3, sticky="ew", pady=10)
+        self._check(uncertainty, 7, "Enable V2 MC Dropout", self.live_vars["mcdo_enabled"])
+        self._check(uncertainty, 8, "Require V2 validation", self.live_vars["mcdo_required"])
+        self._entry(uncertainty, 9, "V2 stochastic passes", self.live_vars["mcdo_passes"], width=14)
+        self._entry(uncertainty, 10, "V2 matching IoU", self.live_vars["mcdo_match_iou"], width=14)
         ttk.Label(
             uncertainty,
             text="V2 uses one unchanged frame, BatchNorm eval, and only the six validated dropout modules in train mode.",
             style="Muted.TLabel",
             wraplength=300,
-        ).grid(row=18, column=0, columnspan=3, sticky="w", pady=(14, 0))
+        ).grid(row=22, column=0, columnspan=3, sticky="w", pady=(14, 0))
 
         actions = ttk.Frame(tab, padding=(0, 14, 0, 0))
         actions.grid(row=3, column=0, columnspan=3, sticky="ew")

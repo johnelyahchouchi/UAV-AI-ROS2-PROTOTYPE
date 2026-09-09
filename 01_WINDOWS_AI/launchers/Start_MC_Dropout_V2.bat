@@ -33,10 +33,10 @@ echo 3. Select an MP4 video.
 echo.
 echo Both checkpoints must be allowlisted in 00_PROJECT_GUIDE\ACTIVE_MODEL_HASHES.csv.
 echo The V2 checkpoint must contain the validated six Dropout2d layers.
-echo During playback press U, then 2, to inspect the frozen frame with V2.
+echo V1 and V2 update in separate live panels. U opens the optional detailed report.
 echo.
 
-"%UAV_YOLO_PYTHON%" "%LIVE_TESTER%" --select-model --select-mcdo-v2-model --require-mcdo-v2 --select-video --loop-video %*
+"%UAV_YOLO_PYTHON%" "%LIVE_TESTER%" --select-model --select-mcdo-v2-model --require-mcdo-v2 --select-video --loop-video --continuous-uncertainty %*
 
 set "EXIT_CODE=%ERRORLEVEL%"
 if not "%EXIT_CODE%"=="0" (

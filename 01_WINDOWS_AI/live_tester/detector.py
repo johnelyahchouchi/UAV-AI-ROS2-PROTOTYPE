@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
+import threading
 from typing import Any, Callable
 
 from uav_security.model_integrity import (
@@ -49,19 +50,24 @@ class YoloDetector:
             raise
         except Exception as error:
             raise TesterError(f"Trusted YOLO model could not be loaded: {error}") from error
+        self._prediction_lock = threading.Lock()
 
     def detect(self, frame: Any) -> list[DetectionResult]:
         """Run one ordinary deterministic inference on a BGR frame."""
 
         try:
-            raw_results = self.model.predict(
-                source=frame,
-                conf=self.confidence,
-                iou=self.iou,
-                imgsz=self.image_size,
-                device=self.device,
-                verbose=False,
-            )
+            # V1 can sample the same trusted detector from a background worker.
+            # Ultralytics model instances are not a thread-safety boundary, so
+            # serialize individual calls while still letting the UI stay live.
+            with self._prediction_lock:
+                raw_results = self.model.predict(
+                    source=frame,
+                    conf=self.confidence,
+                    iou=self.iou,
+                    imgsz=self.image_size,
+                    device=self.device,
+                    verbose=False,
+                )
         except Exception as error:
             raise TesterError(f"YOLO inference failed: {error}") from error
         if not raw_results:

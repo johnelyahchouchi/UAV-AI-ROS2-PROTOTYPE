@@ -66,7 +66,7 @@ Reference IoU is predicted-box consistency, not ground-truth IoU. Evidence share
 a class-correctness probability. V2 is an approximate model/epistemic uncertainty probe,
 not a calibrated posterior or safety guarantee.
 
-The runtime is inactive until `UAV_MCDO_V2_MODEL_PATH` identifies the real external
+The V2 runtime is unavailable until `UAV_MCDO_V2_MODEL_PATH` identifies the real external
 validated checkpoint and its SHA-256 is present in the trusted model registry. That
 checkpoint remains outside source Git. Its independently verified digest and size are
 recorded in the trusted model registry; local runtime loading still fails closed if the
@@ -84,7 +84,17 @@ selected file does not match them.
 
 ## Live integration
 
-The normal tester performs one YOLO inference per frame. Pressing `U`:
+The normal tester performs one base YOLO inference per displayed frame. The canonical
+launcher enables a unified workspace that periodically copies the latest raw frame,
+runs V1 followed by available validated V2 in a background worker, and refreshes two
+scientifically separate status cards. Only one cycle can be active and stale work is
+not queued. Normal detection remains visible throughout.
+
+The continuous worker adds periodic method-specific inference work. It does not change
+the single-pass base playback path, but shared GPU load may reduce achieved FPS. V2
+remains visibly unavailable when its validated external checkpoint is not configured.
+
+Pressing optional `U`:
 
 1. copies the current raw frame;
 2. pauses playback/capture;
@@ -94,15 +104,16 @@ The normal tester performs one YOLO inference per frame. Pressing `U`:
 5. paginates readable target cards in groups of two when necessary;
 6. waits for `P`, `U`, or Space to resume.
 
-Press `A`/`D` or `[`/`]` to change inspection pages and `S` to save the visible page.
-V1 is not run
-continuously, so its repeated passes do not reduce normal live throughput.
+Press `A`/`D` or `[`/`]` to change detailed inspection pages and `S` to save the
+visible page. Use `--continuous-uncertainty-interval` to trade refresh age against
+compute load.
 
 For a dedicated local V2 session on Windows, run
 `01_WINDOWS_AI\launchers\Start_MC_Dropout_V2.bat`. It opens native pickers for the
 trusted base detector, the separately trained V2 checkpoint, and an MP4, and fails
-closed when V2 trust or architecture validation fails. Press `U`, then `2`, to inspect
-the exact frozen frame. The checkpoint remains external and must be enrolled using its
+closed when V2 trust or architecture validation fails. Its V1/V2 cards update live;
+`U`, then `2`, remains available for a detailed exact-frame V2 report. The checkpoint
+remains external and must be enrolled using its
 real independently verified SHA-256 before it can be deserialized.
 
 ## Code layout
