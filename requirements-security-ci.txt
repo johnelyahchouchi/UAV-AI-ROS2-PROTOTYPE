@@ -1,6 +1,6 @@
 bandit==1.9.4
 cryptography==50.0.1
-numpy==1.26.4
+numpy==2.5.3
 opencv-python-headless==4.10.0.84
 Pillow>=9.4,<13
 pip==26.2
