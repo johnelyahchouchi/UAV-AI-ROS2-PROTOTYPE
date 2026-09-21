@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import argparse
 import ctypes
-from dataclasses import asdict, fields
+from dataclasses import asdict, fields, replace
+from datetime import datetime, timezone
 import importlib.util
 import os
 from pathlib import Path
 import queue
+import sqlite3
 import subprocess
 import sys
 import threading
+import uuid
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from typing import Any, TypeVar
@@ -22,12 +25,15 @@ from uav_security.model_integrity import ModelIntegrityError, verify_trusted_mod
 from uav_security.source_urls import source_log_label
 
 from .branding import Branding, load_branding
+from .analysis_workspace import AnalysisWorkspace
+from analysis_session import AnalysisSession
 from .configuration import (
     DASHBOARD_LAUNCHER,
     LIVE_TESTER_SCRIPT,
     PROJECT_ROOT,
     SOURCE_MODES,
     VIDEO_FILE,
+    VIDEO_PICKER,
     WINDOWS_AI_ROOT,
     ControlCenterError,
     DashboardSettings,
@@ -390,17 +396,24 @@ class UAVPrototypeControlCenter:
         self.notebook.pack(fill="both", expand=True, padx=18, pady=(0, 10))
         self.dashboard_tab = ttk.Frame(self.notebook, padding=14)
         self.live_tab = ttk.Frame(self.notebook, padding=14)
+        self.analysis_tab = ttk.Frame(self.notebook, padding=10)
         self.sender_tab = ttk.Frame(self.notebook, padding=14)
         self.mission_tab = ttk.Frame(self.notebook, padding=14)
         self.log_tab = ttk.Frame(self.notebook, padding=14)
         self.notebook.add(self.dashboard_tab, text="Dashboard")
         self.notebook.add(self.live_tab, text="Live Tester")
+        self.notebook.add(self.analysis_tab, text="Analysis Workspace")
         self.notebook.add(self.sender_tab, text="Secure Sender")
         self.notebook.add(self.mission_tab, text="Mission Copilot")
         self.notebook.add(self.log_tab, text="Activity Log")
 
         self._build_dashboard()
         self._build_live_tab()
+        self.analysis_workspace = AnalysisWorkspace(
+            self.analysis_tab, launch=self.launch_live, settings=self.current_live_settings,
+            open_path=self._open_path,
+        )
+        self.analysis_workspace.pack(fill="both", expand=True)
         self._build_sender_tab()
         self._build_mission_tab()
         self._build_log_tab()
@@ -488,7 +501,8 @@ class UAVPrototypeControlCenter:
         )
         quick = (
             ("Launch configured live tester", self.launch_live, "Accent.TButton"),
-            ("Open recorded-analysis dashboard", self.launch_recorded_dashboard, "Secondary.TButton"),
+            ("Open analysis workspace", self.show_analysis, "Secondary.TButton"),
+            ("Recorded video extraction", self.show_recorded, "Secondary.TButton"),
             ("Start secure Windows sender", self.launch_sender, "Secondary.TButton"),
             ("Run Mission Copilot", self.launch_mission, "Secondary.TButton"),
             ("Open local output folder", self.open_output_folder, "Secondary.TButton"),
@@ -833,9 +847,9 @@ class UAVPrototypeControlCenter:
         rows.append(("READY" if Path(sys.executable).is_file() else "ERROR", f"Python: {sys.executable}"))
         rows.append(("READY" if LIVE_TESTER_SCRIPT.is_file() else "ERROR", "Live tester entry point"))
         rows.append(("READY" if DASHBOARD_LAUNCHER.is_file() else "ERROR", "Recorded-analysis dashboard"))
-        dashboard_modules = ("gradio", "cv2", "ultralytics", "torch")
+        dashboard_modules = ("imageio_ffmpeg", "cv2", "ultralytics", "torch")
         missing = [name for name in dashboard_modules if importlib.util.find_spec(name) is None]
-        rows.append(("READY" if not missing else "SETUP", "Dashboard dependencies" + ("" if not missing else f": missing {', '.join(missing)}")))
+        rows.append(("READY" if not missing else "SETUP", "Recorded extraction dependencies" + ("" if not missing else f": missing {', '.join(missing)}")))
         try:
             dashboard_environment = build_dashboard_environment(
                 self.current_dashboard_settings()
@@ -871,7 +885,27 @@ class UAVPrototypeControlCenter:
         self.status_text.set("Readiness refreshed")
 
     def launch_live(self) -> None:
+        existing = self.processes.get("live")
+        if existing is not None and existing.poll() is None:
+            self.show_analysis()
+            self.status_text.set("Live session already running")
+            return
         settings = self.current_live_settings()
+        if not settings.model_path.strip() or Path(settings.model_path).suffix.lower() != ".pt":
+            self.notebook.select(self.live_tab)
+            messagebox.showinfo(
+                "Select a model first",
+                "In Live Tester, use Browse beside Base detector (.pt) to select your trusted model.\n\n"
+                "Then choose Select MP4 as the source mode and press Launch live tester to select your video.",
+                parent=self.root,
+            )
+            return
+        if settings.source_mode == VIDEO_PICKER:
+            selected = filedialog.askopenfilename(parent=self.root, title="Select MP4 for the analysis workspace", filetypes=(("MP4 video", "*.mp4"),))
+            if not selected:
+                return
+            self.live_vars["video_path"].set(selected)
+            settings = replace(settings, source_mode=VIDEO_FILE, video_path=selected)
         try:
             self._verify_model(settings.model_path, settings.registry_path)
             if settings.mcdo_enabled:
@@ -885,7 +919,33 @@ class UAVPrototypeControlCenter:
             f"Launching live tester: {settings.source_mode}; base={Path(settings.model_path).name}; V2={'enabled' if settings.mcdo_enabled else 'disabled'}\n",
             "SYSTEM",
         )
-        self._start_process("live", "Live tester", command)
+        folder = PROJECT_ROOT / "08_OUTPUTS" / "analysis_sessions" / (
+            datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:8]
+        )
+        try:
+            session = AnalysisSession(folder, create=True)
+            session.set_metadata(status="Starting", created_utc=datetime.now(timezone.utc).isoformat())
+        except (OSError, sqlite3.Error) as error:
+            messagebox.showerror("Session could not start", str(error), parent=self.root)
+            return
+        command.extend(["--session-directory", str(folder), "--embedded-preview"])
+        self._live_session = session
+        self.analysis_workspace.attach(session, live_controls=True)
+        if settings.video_path:
+            self.analysis_workspace.video.set(settings.video_path)
+        self.show_analysis()
+        self.analysis_workspace.tabs.select(self.analysis_workspace.live)
+        if not self._start_process("live", "Live tester", command):
+            session.set_metadata(status="Stopped", launch_error="Process could not start; see Activity Log")
+
+    def show_analysis(self) -> None:
+        """Open the embedded live and extraction workspace."""
+        self.notebook.select(self.analysis_tab)
+
+    def show_recorded(self) -> None:
+        """Open recorded extraction within the same branded application."""
+        self.show_analysis()
+        self.analysis_workspace.tabs.select(self.analysis_workspace.recorded)
 
     def launch_recorded_dashboard(self) -> None:
         dashboard_source = WINDOWS_AI_ROOT / "model_test_dashboard" / "src"
@@ -952,11 +1012,11 @@ class UAVPrototypeControlCenter:
         label: str,
         command: list[str],
         extra_environment: dict[str, str] | None = None,
-    ) -> None:
+    ) -> bool:
         existing = self.processes.get(key)
         if existing is not None and existing.poll() is None:
             messagebox.showwarning("Already running", f"{label} is already running.", parent=self.root)
-            return
+            return False
         environment = os.environ.copy()
         environment.update(extra_environment or {})
         environment["PYTHONUNBUFFERED"] = "1"
@@ -976,7 +1036,7 @@ class UAVPrototypeControlCenter:
             )
         except OSError as error:
             messagebox.showerror("Launch failed", str(error), parent=self.root)
-            return
+            return False
         self.processes[key] = process
         self.process_labels[key] = label
         self.status_text.set(f"{label} running")
@@ -987,6 +1047,7 @@ class UAVPrototypeControlCenter:
             daemon=True,
         ).start()
         self.refresh_readiness()
+        return True
 
     def _read_process(
         self,
@@ -999,23 +1060,30 @@ class UAVPrototypeControlCenter:
             for line in stream:
                 self.events.put(("PROCESS", f"[{label}] {line}"))
         return_code = process.wait()
-        self.events.put(("EXIT", f"{key}|{label}|{return_code}"))
+        self.events.put(("EXIT", f"{key}|{label}|{return_code}|{process.pid}"))
 
     def _drain_events(self) -> None:
         try:
             while True:
                 kind, payload = self.events.get_nowait()
                 if kind == "EXIT":
-                    key, label, return_code = payload.split("|", 2)
+                    key, label, return_code, process_id = payload.split("|", 3)
+                    process = self.processes.get(key)
+                    current = process is not None and process.pid == int(process_id)
+                    if current and key == "live" and hasattr(self, "_live_session"):
+                        try:
+                            self._live_session.set_metadata(status="Stopped", exit_code=int(return_code))
+                        except (OSError, sqlite3.Error) as error:
+                            self._write_log(f"Session status could not be saved: {error}\n", "ERROR")
                     self._write_log(
                         f"{label} stopped with exit code {return_code}.\n",
                         "PROCESS" if return_code == "0" else "ERROR",
                     )
-                    process = self.processes.get(key)
-                    if process is not None and process.poll() is not None:
+                    if current and process.poll() is not None:
                         self.processes.pop(key, None)
                         self.process_labels.pop(key, None)
-                    self.status_text.set(f"{label} stopped")
+                    if current:
+                        self.status_text.set(f"{label} stopped")
                     self.refresh_readiness()
                 else:
                     self._write_log(payload, kind)
@@ -1039,6 +1107,7 @@ class UAVPrototypeControlCenter:
         process.terminate()
 
     def stop_all(self) -> None:
+        self.analysis_workspace.cancel_recorded()
         for key in tuple(self.processes):
             self.stop_process(key)
 
@@ -1060,6 +1129,11 @@ class UAVPrototypeControlCenter:
             messagebox.showerror("Could not open path", str(error), parent=self.root)
 
     def close(self) -> None:
+        self.analysis_workspace.close()
+        if self.analysis_workspace.busy:
+            self.status_text.set("Finishing exports and cancelling recorded extraction; waiting for cleanup...")
+            self.root.after(250, self.close)
+            return
         self.save_settings(notify=False)
         for process in self.processes.values():
             if process.poll() is None:

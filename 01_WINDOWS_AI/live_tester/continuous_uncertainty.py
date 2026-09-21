@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from datetime import datetime, timezone
 import math
 import threading
 import time
@@ -10,7 +11,11 @@ from typing import Any, Callable, Sequence
 
 import numpy as np
 
-from .domain import CaptureRegion, FrameMetrics, safe_overlay_text
+from .domain import FrameMetrics, safe_overlay_text
+from .explanation import (
+    MAX_VISUAL_SAMPLES, FramePreview, SamplePreview, draw_preview,
+    frame_preview, sample_preview,
+)
 from .presentation_ui import (
     FontResolver,
     PillowCanvas,
@@ -18,7 +23,6 @@ from .presentation_ui import (
     THEME,
     draw_status_pill,
     presentation_canvas_size,
-    status_color,
 )
 
 
@@ -35,6 +39,12 @@ class MethodSnapshot:
     frame_number: int | None = None
     duration_ms: float | None = None
     updated_at: float | None = None
+    sampled_at: float | None = None
+    sampled_utc: str | None = None
+    reference: FramePreview | None = None
+    previews: tuple[SamplePreview, ...] = ()
+    completed: int = 0
+    total: int = 0
 
 
 @dataclass(frozen=True)
@@ -152,6 +162,7 @@ class ContinuousUncertaintyController:
         interval_seconds: float,
         v2_unavailable_reason: str = "Validated V2 checkpoint is not configured",
         clock: Callable[[], float] = time.perf_counter,
+        result_sink: Callable[[Any, MethodSnapshot], None] | None = None,
     ) -> None:
         if not math.isfinite(interval_seconds) or interval_seconds <= 0.0:
             raise ValueError("Continuous uncertainty interval must be positive")
@@ -159,6 +170,7 @@ class ContinuousUncertaintyController:
         self.v2_inspector = v2_inspector
         self.interval_seconds = float(interval_seconds)
         self.clock = clock
+        self.result_sink = result_sink
         self._lock = threading.Lock()
         self._closed = False
         self._running = False
@@ -192,10 +204,15 @@ class ContinuousUncertaintyController:
             ),
         )
 
-    def submit(self, exact_frame: Any, *, frame_number: int, now: float | None = None) -> bool:
+    def submit(
+        self, exact_frame: Any, *, frame_number: int, now: float | None = None,
+        captured_at: float | None = None, captured_utc: str | None = None,
+    ) -> bool:
         """Start one V1/V2 cycle when due; return false while prior work is active."""
 
         submitted_at = self.clock() if now is None else float(now)
+        sampled_at = submitted_at if captured_at is None else captured_at
+        sampled_utc = captured_utc or datetime.now(timezone.utc).isoformat(timespec="milliseconds")
         with self._lock:
             if self._closed or self._running or submitted_at < self._next_due:
                 return False
@@ -207,6 +224,9 @@ class ContinuousUncertaintyController:
                     state="ANALYZING",
                     status="ANALYZING SNAPSHOT",
                     frame_number=frame_number,
+                    lines=(), duration_ms=None, updated_at=None,
+                    sampled_at=sampled_at, sampled_utc=sampled_utc,
+                    reference=None, previews=(), completed=0, total=0,
                 ),
                 v2=(
                     replace(
@@ -214,6 +234,9 @@ class ContinuousUncertaintyController:
                         state="QUEUED",
                         status="QUEUED AFTER V1",
                         frame_number=frame_number,
+                        lines=(), duration_ms=None, updated_at=None,
+                        sampled_at=sampled_at, sampled_utc=sampled_utc,
+                        reference=None, previews=(), completed=0, total=0,
                     )
                     if self.v2_inspector is not None
                     else self._snapshot.v2
@@ -230,7 +253,10 @@ class ContinuousUncertaintyController:
         self._thread.start()
         return True
 
-    def _inspect(self, inspector: Any, frame: Any) -> Any:
+    def _inspect(self, inspector: Any, frame: Any, observer: Callable[[Any], None]) -> Any:
+        streaming = getattr(inspector, "analyze_with_observer", None)
+        if callable(streaming):
+            return streaming(frame, observer=observer)
         analyze = getattr(inspector, "analyze", None)
         return analyze(frame) if callable(analyze) else inspector.inspect(frame)
 
@@ -243,15 +269,52 @@ class ContinuousUncertaintyController:
         frame_number: int,
     ) -> MethodSnapshot:
         started = self.clock()
+        with self._lock:
+            initial = getattr(self._snapshot, method)
+        previews: list[SamplePreview] = []
+        reference = None
+        completed = total = 0
+
+        def observe(observation: Any) -> None:
+            nonlocal completed, total
+            previews.append(sample_preview(observation))
+            del previews[:-MAX_VISUAL_SAMPLES]
+            completed, total = observation.sample_index + 1, observation.total
+            with self._lock:
+                if self._closed:
+                    return
+                state = replace(
+                    initial, state="ANALYZING", status=f"Completed {completed} / {total}",
+                    reference=reference, previews=tuple(previews),
+                    completed=completed, total=total,
+                )
+                self._snapshot = replace(self._snapshot, **{method: state})
+
+        def attach(state: MethodSnapshot) -> MethodSnapshot:
+            return replace(
+                state, sampled_at=initial.sampled_at, sampled_utc=initial.sampled_utc,
+                reference=reference, previews=tuple(previews), completed=completed, total=total,
+            )
+
+        def publish(view: Any, state: MethodSnapshot) -> MethodSnapshot:
+            if self.result_sink is not None:
+                try:
+                    self.result_sink(view, state)
+                except Exception as error:
+                    print(f"Extraction journal write failed: {error}", flush=True)
+                    return replace(state, status=f"{state.status} | EXPORT FAILED")
+            return state
+
         try:
-            view = self._inspect(inspector, frame.copy())
+            reference = frame_preview(frame)
+            view = self._inspect(inspector, frame.copy(), observe)
             finished = self.clock()
             duration_ms = max(0.0, (finished - started) * 1000.0)
             summarizer = _summarize_v1 if method == "v1" else _summarize_v2
-            return summarizer(view, frame_number, duration_ms, finished)
+            return publish(view, attach(summarizer(view, frame_number, duration_ms, finished)))
         except Exception as error:
             finished = self.clock()
-            return MethodSnapshot(
+            return publish(None, attach(MethodSnapshot(
                 method=method,
                 title="V1 INPUT STABILITY" if method == "v1" else "V2 MC DROPOUT",
                 scope=(
@@ -265,7 +328,7 @@ class ContinuousUncertaintyController:
                 frame_number=frame_number,
                 duration_ms=max(0.0, (finished - started) * 1000.0),
                 updated_at=finished,
-            )
+            )))
 
     def _run_cycle(self, frame: Any, frame_number: int) -> None:
         v1 = self._run_method(
@@ -303,6 +366,7 @@ class ContinuousWorkspaceRenderer:
 
     def __init__(self, *, fonts: FontResolver | None = None) -> None:
         self.fonts = fonts or FontResolver()
+        self.zoomed = False
 
     def render(
         self,
@@ -329,8 +393,8 @@ class ContinuousWorkspaceRenderer:
         body_bottom = height - margin - footer_height
         body_height = body_bottom - body_y
         usable_width = width - 2 * margin - gap
-        video_width = round(usable_width * 0.67)
-        video_rect = Rect(margin, body_y, video_width, body_height)
+        video_width = round(usable_width * 0.56)
+        video_rect = Rect(margin, body_y, video_width, body_height - round(136 * scale))
         panel_x = video_rect.right + gap
         panel_width = width - margin - panel_x
         panel_gap = gap
@@ -365,13 +429,29 @@ class ContinuousWorkspaceRenderer:
             max_width=round(92 * scale),
         )
         canvas.paste_frozen_frame(live_frame, video_rect, radius=round(12 * scale))
+        guide = Rect(margin, video_rect.bottom + gap, video_width, body_bottom - video_rect.bottom - gap)
+        canvas.rectangle(guide, fill=(*THEME.surface, 255), radius=round(12 * scale))
+        guide_lines = (
+            "HOW TO READ THE EXPERIMENTS",
+            "V1 changes the input. V2 keeps the input fixed and changes dropout masks.",
+            "Panels replay completed samples; their source frame is older than the live video.",
+            "Z: toggle 2x center zoom (view only). Cyan: selected output; amber: V2 pass history.",
+            "Measurements describe variation, not a calibrated probability of correctness.",
+        )
+        for index, line in enumerate(guide_lines):
+            canvas.text(
+                line, guide.x + round(14 * scale), guide.y + round((10 + index * 21) * scale),
+                size=(11 if index == 0 else 9.5) * scale,
+                fill=THEME.accent if index == 0 else THEME.muted,
+                bold=index == 0, max_width=guide.width - round(28 * scale),
+            )
         self._draw_method_card(canvas, v1_rect, snapshot.v1, scale=scale, now=now)
         self._draw_method_card(canvas, v2_rect, snapshot.v2, scale=scale, now=now)
 
         footer = (
-            "Q/ESC quit | P pause | S screenshot | H HUD | U exact-frame report"
+            "Q/ESC quit | P pause | S save | H HUD | Z zoom | U report"
             if exact_inspection_available
-            else "Q/ESC quit | P pause | S screenshot | H HUD"
+            else "Q/ESC quit | P pause | S save | H HUD | Z zoom"
         )
         canvas.text(
             footer,
@@ -430,45 +510,66 @@ class ContinuousWorkspaceRenderer:
             size=8.5 * scale,
             max_width=round(96 * scale),
         )
-        canvas.text(
-            state.scope,
-            x,
-            rect.y + round(38 * scale),
-            size=9.5 * scale,
-            fill=THEME.muted,
-            max_width=max_width,
-        )
-        canvas.text(
-            state.status,
-            x,
-            rect.y + round(65 * scale),
-            size=12.5 * scale,
-            fill=status_color(state.status),
-            bold=True,
-            max_width=max_width,
-        )
-        line_y = rect.y + round(98 * scale)
-        line_step = round(24 * scale)
-        for index, line in enumerate(state.lines[:5]):
+        def text(value: str, offset: int, *, accent: bool = False) -> None:
             canvas.text(
-                line,
-                x,
-                line_y + index * line_step,
-                size=9.5 * scale,
-                fill=THEME.text if index < 4 else THEME.muted,
-                max_width=max_width,
+                value, x, rect.y + round(offset * scale), size=9.5 * scale,
+                fill=THEME.accent if accent else THEME.muted, max_width=max_width,
             )
-        if state.updated_at is None:
-            updated = "Waiting for a sampled frame"
-        else:
-            age = max(0.0, now - state.updated_at)
-            duration = "" if state.duration_ms is None else f" | analysis {state.duration_ms:.0f} ms"
-            updated = f"Frame {state.frame_number} | updated {age:.1f} s ago{duration}"
+
+        if state.sampled_at is None:
+            text(state.scope, 38)
+            text(state.status, 72, accent=True)
+            for index, line in enumerate(state.lines[:4]):
+                text(line, 100 + index * 24)
+            return
+
+        age = max(0.0, now - state.sampled_at)
+        utc = (state.sampled_utc or "UTC unavailable").replace("T", " ").replace("+00:00", " UTC")
+        text(f"Frame {state.frame_number} | {utc}", 36)
+        duration = "" if state.duration_ms is None else f" | analysis {state.duration_ms:.0f} ms"
+        text(f"Source age {age:.1f}s{duration}", 53)
+
+        if not state.previews or state.reference is None:
+            text(state.status, 94, accent=True)
+            for index, line in enumerate(state.lines[:5]):
+                text(line, 122 + index * 22)
+            return
+
+        # Replay only real completed observations; never invent progress or model passes.
+        index = int(now / 0.9) % len(state.previews)
+        selected = state.previews[index]
+        zoom = "2x center / view only" if self.zoomed else "Full frame"
+        text(f"{zoom} | Replay completed sample {selected.sample_index + 1}/{selected.total}", 73, accent=True)
+        gap = round(8 * scale)
+        preview_width = (max_width - gap) // 2
+        left = Rect(x, rect.y + round(108 * scale), preview_width, round(78 * scale))
+        right = Rect(left.right + gap, left.y, preview_width, left.height)
+        text("Clean reference" if state.method == "v1" else "Unchanged input", 92)
         canvas.text(
-            updated,
-            x,
-            rect.bottom - round(27 * scale),
-            size=8.7 * scale,
-            fill=THEME.muted,
-            max_width=max_width,
+            selected.family if state.method == "v1" else f"Stochastic pass {selected.sample_index + 1}",
+            right.x, rect.y + round(92 * scale), size=9.5 * scale,
+            fill=THEME.text, max_width=preview_width,
         )
+        draw_preview(canvas, state.reference, left, zoomed=self.zoomed)
+        draw_preview(
+            canvas, selected.pixels, right, zoomed=self.zoomed, boxes=selected.boxes,
+            history=state.previews if state.method == "v2" else (),
+        )
+        detail = selected.parameters if state.method == "v1" else "Same pixels | dropout active | BatchNorm eval"
+        text(f"{detail} | detections {selected.detection_count}", 190)
+        retained = f" | latest {len(state.previews)} shown" if state.completed > len(state.previews) else ""
+        text(f"Completed {state.completed}/{state.total}{retained} | {state.status}", 210, accent=True)
+        bar_y = rect.y + round(229 * scale)
+        bar_height = max(2, round(3 * scale))
+        canvas.rectangle(Rect(x, bar_y, max_width, bar_height), fill=(*THEME.border, 255))
+        if state.total:
+            bar_width = max(1, round(max_width * min(1.0, state.completed / state.total)))
+            canvas.rectangle(Rect(x, bar_y, bar_width, bar_height), fill=(*THEME.accent, 255))
+        # Final aggregate values appear only after matching/metrics finish for this frame.
+        if state.state == "READY":
+            for line_index, line in enumerate(state.lines[1:3]):
+                text(line, 238 + line_index * 18)
+        elif state.state == "FAILED":
+            text(state.lines[0] if state.lines else "Analysis failed", 240)
+        else:
+            text("Collecting real results; aggregate metrics pending.", 240)

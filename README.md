@@ -38,10 +38,13 @@ The complete local operator interface is:
 .\01_WINDOWS_AI\launchers\Start_UAV_Prototype_GUI.bat
 ```
 
-It opens a five-tab readiness dashboard for the live tester, V1/V2 uncertainty,
-recorded-video analysis, secure Windows sender, deterministic Mission Copilot, and
-managed process logs. Models, media, TLS material and generated output remain external.
+It opens a six-tab dashboard with the existing Additess header. The **Analysis
+Workspace** contains an embedded live preview, detailed V1/V2 extraction tables,
+two time-series graphs per method, full session JSON export, and recorded-video
+extraction with CSV/annotated-video output. Configure models in **Live Tester** and
+launch directly into this workspace. Models, media, TLS material and generated output remain external.
 See [the control-center guide](07_DOCUMENTATION/UAV_PROTOTYPE_CONTROL_CENTER.md).
+For a plain-language explanation of every main view, box coordinates, graphs and exports, see the [dashboard quick catalog](07_DOCUMENTATION/DASHBOARD_QUICK_CATALOG.md).
 
 ## Quick presentation demo (Windows, no ROS 2 required)
 

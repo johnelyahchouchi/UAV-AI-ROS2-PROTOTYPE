@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import deque
-from datetime import datetime
+from datetime import datetime, timezone
 import math
 from pathlib import Path
 import time
@@ -280,7 +280,9 @@ def _run_preview_loop(
                     except VideoSourceEnded:
                         print("Video reached the end; closing preview.")
                         break
-                    capture_ms = (clock() - capture_started) * 1000.0
+                    captured_at = clock()
+                    capture_ms = (captured_at - capture_started) * 1000.0
+                    captured_utc = datetime.now(timezone.utc).isoformat(timespec="milliseconds")
                     last_raw_frame = frame.copy()
                     outcome = processor.process(
                         frame,
@@ -298,6 +300,8 @@ def _run_preview_loop(
                             last_raw_frame,
                             frame_number=frame_number,
                             now=loop_started,
+                            captured_at=captured_at,
+                            captured_utc=captured_utc,
                         )
 
                 if selection_frame is not None:
@@ -355,6 +359,8 @@ def _run_preview_loop(
                 key = cv2_module.waitKey(30 if paused else 1) & 0xFF
                 if key in (ord("q"), ord("Q")):
                     break
+                if key in (ord("z"), ord("Z")) and continuous_renderer is not None:
+                    continuous_renderer.zoomed = not continuous_renderer.zoomed
                 if selection_frame is not None:
                     if key in (27, 32, ord("u"), ord("U"), ord("p"), ord("P")):
                         selection_frame = None
@@ -524,6 +530,8 @@ def run_live_preview(
 
     try:
         preview_width, preview_height = scaled_preview_size(region)
+        if continuous_renderer is not None:
+            preview_width, preview_height = 1280, 720
         window_left, window_top, overlap = choose_preview_position(
             region, monitors, preview_width, preview_height
         )
@@ -578,6 +586,8 @@ def run_video_preview(
     """Play a local video through one-pass detection until EOF or exit."""
 
     preview_width, preview_height = scaled_preview_size(processor.region)
+    if continuous_renderer is not None:
+        preview_width, preview_height = 1280, 720
     try:
         cv2_module.namedWindow(WINDOW_NAME, cv2_module.WINDOW_NORMAL)
         cv2_module.resizeWindow(WINDOW_NAME, preview_width, preview_height)

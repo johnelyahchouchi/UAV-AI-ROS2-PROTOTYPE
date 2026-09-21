@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+import time
 from typing import Sequence
 
 from uav_security.model_integrity import ModelIntegrityError
@@ -46,8 +47,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     parser = build_parser()
     args = parser.parse_args(argv)
+    embedded = None
     try:
         validate_numeric_options(args)
+        if args.embedded_preview and (args.session_directory is None or args.test_frame):
+            raise TesterError("Embedded preview requires a session directory and live/video mode")
         if args.list_monitors:
             print_monitors(discover_monitors())
             return 0
@@ -175,12 +179,42 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         continuous_controller = None
         continuous_renderer = None
+        result_sink = None
+        if args.session_directory is not None:
+            from analysis_session import AnalysisSession, EmbeddedPreview, extraction_record
+            session = AnalysisSession(args.session_directory, create=True)
+            started_at = time.perf_counter()
+            session.set_metadata(
+                v1_model=model_path.name, v1_sha256=detector.model_sha256,
+                v2_model=mcdo_inspector.runner.model_path.name if mcdo_inspector else None,
+                v2_sha256=mcdo_inspector.model_sha256 if mcdo_inspector else None,
+                v2_availability="available" if mcdo_inspector else mcdo_panel_reason,
+                v1_samples=args.uncertainty_samples + 1, v2_passes=args.mcdo_v2_passes,
+                source=video_path.name if video_path else "screen capture",
+                uncertainty_enabled=args.continuous_uncertainty,
+            )
+
+            def result_sink(view, state):
+                if view is not None:
+                    record = extraction_record(view, state, started_at=started_at)
+                else:
+                    record = {
+                        "schema_version": 1, "method": state.method, "frame": state.frame_number,
+                        "captured_utc": state.sampled_utc, "state": "FAILED", "status": state.lines[0],
+                        "elapsed_seconds": max(0, state.sampled_at - started_at),
+                        "analysis": {}, "samples": [], "metrics": {},
+                    }
+                session.append(record)
+
+            if args.embedded_preview:
+                embedded = EmbeddedPreview(cv2, session)
         if args.continuous_uncertainty and inspector is not None:
             continuous_controller = ContinuousUncertaintyController(
                 inspector,
                 mcdo_inspector,
                 interval_seconds=args.continuous_uncertainty_interval,
                 v2_unavailable_reason=mcdo_panel_reason,
+                result_sink=result_sink,
             )
             continuous_renderer = ContinuousWorkspaceRenderer()
 
@@ -264,7 +298,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 processor,
                 screenshot_store,
                 max_fps=args.max_fps,
-                cv2_module=cv2,
+                cv2_module=embedded or cv2,
                 uncertainty_inspector=inspector,
                 mcdo_v2_inspector=mcdo_inspector,
                 continuous_controller=continuous_controller,
@@ -277,7 +311,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             processor,
             screenshot_store,
             max_fps=args.max_fps,
-            cv2_module=cv2,
+            cv2_module=embedded or cv2,
             uncertainty_inspector=inspector,
             mcdo_v2_inspector=mcdo_inspector,
             continuous_controller=continuous_controller,
@@ -287,3 +321,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (TesterError, ModelIntegrityError, ValueError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 2
+    finally:
+        if embedded is not None:
+            embedded.destroyAllWindows()

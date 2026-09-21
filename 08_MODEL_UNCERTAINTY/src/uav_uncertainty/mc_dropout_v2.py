@@ -18,6 +18,7 @@ from numpy.typing import NDArray
 
 from .detection import BoundingBox, Detection
 from .matching import intersection_over_union
+from .observations import SampleObserver, observe_sample
 
 
 METHOD_ID = "v2_mc_dropout_model_uncertainty"
@@ -744,6 +745,8 @@ def run_mcdo_frame(
     exact_frame: Image,
     runner: MCDOPassRunner,
     config: MCDOV2Config | None = None,
+    *,
+    observer: SampleObserver | None = None,
 ) -> MCDOFrameAnalysis:
     """Run repeated stochastic forwards on one defensive, unchanged frame copy."""
 
@@ -762,6 +765,10 @@ def run_mcdo_frame(
         if not np.array_equal(frozen, expected_pixels):
             raise MCDOV2Error("V2 pass runner modified the exact frozen frame")
         samples.append(detections)
+        observe_sample(
+            observer, frozen, sample_index=len(samples) - 1,
+            total=settings.sample_count, family="mc_dropout", detections=detections,
+        )
     clusters = cluster_mcdo_samples(samples, settings.match_iou)
     targets = tuple(
         calculate_mcdo_target(cluster, settings.sample_count)

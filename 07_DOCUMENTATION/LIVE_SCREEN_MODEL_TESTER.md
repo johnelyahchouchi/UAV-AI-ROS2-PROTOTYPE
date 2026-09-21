@@ -18,6 +18,7 @@ code lives under `01_WINDOWS_AI/live_tester/`:
 | `renderer.py` | Detection boxes and compact performance HUD. |
 | `runtime.py` | Frame processing, rolling timings, keyboard loop, screenshots. |
 | `continuous_uncertainty.py` | Latest-frame worker and unified live V1/V2 workspace. |
+| `explanation.py` | Bounded previews of actual completed samples and view-only zoom. |
 | `uncertainty_adapter.py` | V1 analysis and detailed inspection display. |
 | `mc_dropout_adapter.py` | Validated V2 analysis and detailed inspection display. |
 | `app.py` | Composition and console summary. |
@@ -85,7 +86,9 @@ presentation machine needs lower latency.
 ## Continuous V1/V2 workspace
 
 `--continuous-uncertainty` composes one 16:9 operator view with the annotated live
-video on the left and separate V1 and V2 cards on the right. The first raw-frame copy
+video on the left and separate V1 and V2 cards on the right. The resizable window
+starts at 1280x720 even for small or portrait inputs so panel text stays readable.
+The first raw-frame copy
 is sampled automatically. Later cycles start no faster than
 `--continuous-uncertainty-interval` seconds, which defaults to 2 seconds.
 
@@ -95,6 +98,42 @@ V1 runs first and V2 follows on the same copied frame. Each panel independently 
 waiting, queued, analyzing, ready, unavailable, or failed state, the sampled frame
 number, update age, analysis duration, method-specific metrics, and scientific scope.
 A V1 or V2 error is contained in its card while normal live detection continues.
+
+### Live explanation panels
+
+V1 displays the clean reference beside a replay of **actual completed inference
+inputs**, including brightness, contrast, Gaussian blur/noise, and JPEG compression.
+The caption identifies the transformation and its actual parameters. No stronger
+visual effect is substituted for the mild transformation used by the analysis.
+
+V2 displays an unchanged reference and the same pixels with real stochastic-pass
+outputs. Cyan boxes are from the selected completed pass; translucent amber outlines
+show the retained pass history. These outlines are raw observations, not associated
+tracks, probability contours, or a calibrated confidence region. An empty pass is
+shown as zero detections. A missing or invalid V2 checkpoint remains **UNAVAILABLE**;
+the application never substitutes an illustrative simulation for V2 inference.
+
+Both cards show:
+
+- The source frame number (a session counter, continuing across video loops).
+- The host UTC time immediately after capture/decode, **not** the video's original
+  recording timestamp or media position.
+- Source age from a monotonic clock, including analysis time, plus analysis duration.
+- Completed inputs/passes and final aggregate metrics only after matching finishes.
+- A labeled replay of completed samples, advancing every 0.9 seconds independently
+  of live video playback. Replay is not another inference or progress indicator.
+
+Press **Z** to toggle a **2x center crop for viewing only** in both panels. The crop is
+made from the observed image before preview downsampling; it never changes model
+input, perturbation settings, or calculated metrics. The main video remains live.
+Press **U** only when you want the existing paused, detailed report.
+
+The core emits optional `SampleObservation` callbacks after successful inference.
+The worker reduces each observation to read-only previews bounded to 480x270 pixels,
+retaining at most the latest 32 visual samples per method. Scientific metrics still
+use every configured sample. The display explicitly labels truncated visual history.
+New cycles clear old metrics and previews before assigning the new source identity.
+Partial failures retain their completed observations under a FAILED status.
 
 The base playback path still calls the normal detector exactly once per displayed
 frame. Continuous V1 uses extra predictions on a periodic copied frame and V2 uses its
@@ -108,6 +147,7 @@ refresh interval or reduce sample counts if needed for the presentation computer
 - `P`: pause/resume normal playback.
 - `S`: save the current live frame or uncertainty inspection.
 - `H`: show/hide the normal HUD.
+- `Z`: toggle the continuous explanation panels' 2x center zoom (view only).
 - `U`: optional detailed report on a copy of the exact current raw frame. If V2 is
   validated and loaded, open the method menu; otherwise run V1 directly.
 - `1` in the method menu: V1 input-perturbation robustness.

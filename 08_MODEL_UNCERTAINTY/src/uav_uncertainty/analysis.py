@@ -9,6 +9,7 @@ from .detection import Detection
 from .matching import TargetCluster, match_detection_samples
 from .metrics import TargetMetrics, calculate_all_metrics
 from .perturbations import Image, PerturbationConfig, generate_perturbations
+from .observations import SampleObserver, observe_sample
 
 
 METHOD_ID = "v1_input_perturbation_robustness"
@@ -112,6 +113,7 @@ def analyze_image(
     perturbation_config: PerturbationConfig | None = None,
     progress: ProgressCallback | None = None,
     cancelled: CancellationCheck | None = None,
+    observer: SampleObserver | None = None,
 ) -> ImageAnalysis:
     """Run one clean prediction plus seeded perturbed predictions in memory."""
 
@@ -134,10 +136,19 @@ def analyze_image(
     notify("clean_baseline", 0)
     clean = tuple(detector.detect(image.copy()))
     samples = [AnalysisSample(0, "clean_baseline", {}, clean)]
+    observe_sample(
+        observer, image, sample_index=0, total=sample_count + 1,
+        family="clean_baseline", detections=clean,
+    )
     for variant in variants:
         _raise_if_cancelled(cancelled)
         notify(f"perturbation:{variant.family.value}", variant.sample_index)
         detections = tuple(detector.detect(variant.image))
+        observe_sample(
+            observer, variant.image, sample_index=variant.sample_index,
+            total=sample_count + 1, family=variant.family.value,
+            parameters=tuple(variant.parameters.items()), detections=detections,
+        )
         samples.append(
             AnalysisSample(
                 variant.sample_index,

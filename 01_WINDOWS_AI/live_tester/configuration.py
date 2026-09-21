@@ -487,6 +487,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIRECTORY)
     parser.add_argument("--test-frame", type=Path)
     parser.add_argument("--registry", type=Path)
+    parser.add_argument("--session-directory", type=Path, help="Local analysis workspace session folder")
+    parser.add_argument("--embedded-preview", action="store_true", help="Display inside the main dashboard")
     parser.add_argument("--uncertainty-samples", type=int, default=10)
     parser.add_argument("--uncertainty-seed", type=int, default=42)
     parser.add_argument("--uncertainty-match-iou", type=float, default=0.50)

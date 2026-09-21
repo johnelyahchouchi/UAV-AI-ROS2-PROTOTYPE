@@ -35,6 +35,7 @@ if str(UNCERTAINTY_SRC) not in sys.path:
 
 from uav_uncertainty.analysis import ImageAnalysis, analyze_image  # noqa: E402
 from uav_uncertainty.detection import Detection  # noqa: E402
+from uav_uncertainty.observations import SampleObserver  # noqa: E402
 from uav_uncertainty.metrics import TargetMetrics  # noqa: E402
 from uav_uncertainty.presentation import (  # noqa: E402
     interpret_target,
@@ -198,6 +199,13 @@ class RobustnessInspector:
     def analyze(self, exact_frame: Any) -> InspectionView:
         """Calculate V1 metrics without constructing full-page presentation images."""
 
+        return self.analyze_with_observer(exact_frame, observer=None)
+
+    def analyze_with_observer(
+        self, exact_frame: Any, *, observer: SampleObserver | None
+    ) -> InspectionView:
+        """Expose completed real input samples to the background explanation panel."""
+
         frozen = exact_frame.copy()
         with self._analysis_lock:
             analysis = analyze_image(
@@ -206,6 +214,7 @@ class RobustnessInspector:
                 sample_count=self.sample_count,
                 seed=self.seed,
                 match_iou=self.match_iou,
+                observer=observer,
             )
         status = overall_status(
             analysis.baseline_metrics,

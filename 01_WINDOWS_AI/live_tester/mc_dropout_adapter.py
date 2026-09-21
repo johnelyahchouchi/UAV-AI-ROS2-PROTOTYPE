@@ -43,6 +43,7 @@ from uav_uncertainty.mc_dropout_v2 import (  # noqa: E402
     MCDOV2Config,
     run_mcdo_frame,
 )
+from uav_uncertainty.observations import SampleObserver  # noqa: E402
 
 
 def _target_is_stable(target: MCDOTargetResult) -> bool:
@@ -193,9 +194,16 @@ class MCDOV2LiveInspector:
     def analyze(self, exact_frame: Any) -> InspectionView:
         """Calculate V2 metrics without constructing full-page presentation images."""
 
+        return self.analyze_with_observer(exact_frame, observer=None)
+
+    def analyze_with_observer(
+        self, exact_frame: Any, *, observer: SampleObserver | None
+    ) -> InspectionView:
+        """Expose completed stochastic passes, always using unchanged input pixels."""
+
         frozen = exact_frame.copy()
         with self._analysis_lock:
-            analysis = run_mcdo_frame(frozen, self.runner, self.config)
+            analysis = run_mcdo_frame(frozen, self.runner, self.config, observer=observer)
         return InspectionView(frame=frozen, analysis=analysis, status=analysis.status)
 
     def _render_analysis(self, exact_frame: Any, analysis: MCDOFrameAnalysis) -> Any:
