@@ -3,7 +3,7 @@
 -c 01_WINDOWS_AI/model_test_dashboard/constraints-yolo-env.txt
 
 numpy==1.26.4
-matplotlib==3.8.4
+matplotlib==3.11.1
 mss==10.2.0
 opencv-python==4.10.0.84
 Pillow>=9.4,<13
