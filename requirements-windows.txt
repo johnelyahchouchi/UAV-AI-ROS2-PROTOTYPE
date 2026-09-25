@@ -8,6 +8,6 @@ mss==10.2.0
 opencv-python==4.10.0.84
 Pillow>=9.4,<13
 PyYAML==6.0.3
-ultralytics==8.4.107
+ultralytics==8.4.159
 yt-dlp==2026.8.19
 imageio-ffmpeg==0.6.0
